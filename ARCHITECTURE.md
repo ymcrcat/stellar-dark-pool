@@ -622,7 +622,6 @@ GET    /api/v1/orders               # List user orders
 GET    /api/v1/orderbook/:pair      # Get order book snapshot
 GET    /api/v1/trades               # Get trade history
 POST   /api/v1/settlement/submit   # Sign and submit settlement
-POST   /api/v1/settlement/construct # Construct settlement transaction
 GET    /health                      # Health check
 ```
 

@@ -1,0 +1,43 @@
+# Rust build artifacts
+/target/
+**/target/
+
+# Remove old target directories (workspace builds to root target/)
+/contracts/settlement/target/
+/matching-engine/target/
+
+# Cargo
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python (if any)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Agents
+WARP.md
+.claude
+.cursorrules

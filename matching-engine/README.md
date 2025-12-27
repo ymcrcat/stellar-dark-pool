@@ -10,7 +10,70 @@ A Python implementation of the matching engine for the Stellar Dark Pool, rewrit
 - **SEP-0053 Support**: Implements Stellar Signed Messages for secure order authentication.
 - **API Compatible**: Provides the same REST API endpoints as the Rust implementation.
 
-## Setup
+## Docker Deployment (Recommended)
+
+### Prerequisites
+- Docker Engine 20.10+
+- Docker Compose 2.0+
+
+### Quick Start
+
+1. **Copy environment template**:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Configure environment variables**:
+   Edit `.env` and set your configuration:
+   ```bash
+   SETTLEMENT_CONTRACT_ID=<YOUR_CONTRACT_ID>
+   MATCHING_ENGINE_SIGNING_KEY=<YOUR_SECRET_KEY>
+   # Adjust other settings as needed
+   ```
+
+3. **Build and run with Docker Compose** (from project root):
+   ```bash
+   cd ..
+   docker-compose up -d
+   ```
+
+4. **Check logs**:
+   ```bash
+   docker-compose logs -f matching-engine
+   ```
+
+5. **Stop the service**:
+   ```bash
+   docker-compose down
+   ```
+
+### Docker Commands
+
+**Build image manually**:
+```bash
+docker build -t stellar-darkpool-matching-engine:latest .
+```
+
+**Run container manually**:
+```bash
+docker run -d \
+  --name matching-engine \
+  -p 8080:8080 \
+  --env-file .env \
+  stellar-darkpool-matching-engine:latest
+```
+
+**View logs**:
+```bash
+docker logs -f matching-engine
+```
+
+**Access container shell** (for debugging):
+```bash
+docker exec -it matching-engine bash
+```
+
+## Local Development Setup
 
 1. **Install Dependencies**:
    ```bash

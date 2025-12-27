@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  matching-engine:
+    build:
+      context: ./matching-engine
+      dockerfile: Dockerfile
+    container_name: stellar-darkpool-matching-engine
+    ports:
+      - "${REST_PORT:-8080}:8080"
+    environment:
+      # Stellar Network Configuration
+      STELLAR_NETWORK_PASSPHRASE: ${STELLAR_NETWORK_PASSPHRASE:-Test SDF Network ; September 2015}
+      HORIZON_URL: ${HORIZON_URL:-https://horizon-testnet.stellar.org}
+      SOROBAN_RPC_URL: ${SOROBAN_RPC_URL:-https://soroban-testnet.stellar.org}
+
+      # Settlement Contract Configuration
+      SETTLEMENT_CONTRACT_ID: ${SETTLEMENT_CONTRACT_ID}
+
+      # Matching Engine Signing Configuration
+      MATCHING_ENGINE_SIGNING_KEY: ${MATCHING_ENGINE_SIGNING_KEY}
+      MATCHING_ENGINE_KEY_ALIAS: ${MATCHING_ENGINE_KEY_ALIAS:-}
+
+      # Server Configuration
+      REST_PORT: ${REST_PORT:-8080}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/').read()"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - darkpool-network
+
+networks:
+  darkpool-network:
+    driver: bridge

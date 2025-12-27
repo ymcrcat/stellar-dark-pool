@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: stellar-darkpool-matching-engine
     ports:
-      - "${REST_PORT:-8080}:8080"
+      - "${REST_PORT:-8080}:${REST_PORT:-8080}"
     environment:
       # Stellar Network Configuration
       STELLAR_NETWORK_PASSPHRASE: ${STELLAR_NETWORK_PASSPHRASE:-Test SDF Network ; September 2015}
@@ -25,7 +25,7 @@ services:
       REST_PORT: ${REST_PORT:-8080}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()"]
+      test: ["CMD", "python", "-c", "import urllib.request, os; port = os.getenv('REST_PORT', '8080'); urllib.request.urlopen(f'http://localhost:{port}/health').read()"]
       interval: 30s
       timeout: 3s
       retries: 3

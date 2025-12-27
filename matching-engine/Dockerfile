@@ -40,7 +40,7 @@ EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()" || exit 1
+    CMD python -c "import urllib.request, os; port = os.getenv('REST_PORT', '8080'); urllib.request.urlopen(f'http://localhost:{port}/health').read()" || exit 1
 
 # Run the matching engine
 CMD ["python", "-m", "src.main"]

@@ -242,8 +242,8 @@ else
     # Check initial balance
     echo -n "  Checking initial balance... "
     INITIAL_BALANCE_OUTPUT=$(invoke_contract get_balance --user "$TESTER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
-    INITIAL_BALANCE=$(echo "$INITIAL_BALANCE_OUTPUT" | grep -oE '[0-9]+' | head -1 || echo "0")
     extract_logs "$INITIAL_BALANCE_OUTPUT"
+    INITIAL_BALANCE=$(echo "$INITIAL_BALANCE_OUTPUT" | sed -n 's/.*"fn_return".*"i128":"\([0-9]*\)".*/\1/p' | head -1)
 
     [ "$INITIAL_BALANCE" = "0" ] || [ -z "$INITIAL_BALANCE" ] && \
         echo -e "${GREEN}✓ Initial balance is 0 (expected)${NC}" || \
@@ -265,8 +265,8 @@ else
         # Check balance after deposit
         echo -n "  Checking balance after deposit... "
         BALANCE_AFTER_OUTPUT=$(invoke_contract get_balance --user "$TESTER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
-        BALANCE_AFTER=$(echo "$BALANCE_AFTER_OUTPUT" | grep -oE '[0-9]+' | head -1 || echo "0")
         extract_logs "$BALANCE_AFTER_OUTPUT"
+        BALANCE_AFTER=$(echo "$BALANCE_AFTER_OUTPUT" | sed -n 's/.*"fn_return".*"i128":"\([0-9]*\)".*/\1/p' | head -1)
 
         [ "$BALANCE_AFTER" -ge "$amount" ] && {
             echo -e "${GREEN}✓ Balance correct: $BALANCE_AFTER${NC}"
@@ -284,8 +284,8 @@ else
 
                 # Check final balance
                 BALANCE_FINAL_OUTPUT=$(invoke_contract get_balance --user "$TESTER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
-                BALANCE_FINAL=$(echo "$BALANCE_FINAL_OUTPUT" | grep -oE '[0-9]+' | head -1 || echo "0")
                 extract_logs "$BALANCE_FINAL_OUTPUT"
+                BALANCE_FINAL=$(echo "$BALANCE_FINAL_OUTPUT" | sed -n 's/.*"fn_return".*"i128":"\([0-9]*\)".*/\1/p' | head -1)
 
                 [ "$BALANCE_FINAL" = "0" ] || [ -z "$BALANCE_FINAL" ] && \
                     echo -e "${GREEN}✓ Balance after withdraw is 0 (expected)${NC}" || \
@@ -457,7 +457,8 @@ EOF
             echo -n "  Checking seller balance after settlement... "
             SELLER_BALANCE_OUTPUT=$(invoke_as seller get_balance --user "$SELLER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
             extract_logs "$SELLER_BALANCE_OUTPUT"
-            SELLER_BALANCE=$(echo "$SELLER_BALANCE_OUTPUT" | sed -n 's/.*"i128":"\([0-9]*\)".*/\1/p' | head -1)
+            # Extract balance from either direct output line or from fn_return log
+            SELLER_BALANCE=$(echo "$SELLER_BALANCE_OUTPUT" | grep -E '^"[0-9]+"$' | tr -d '"' || echo "$SELLER_BALANCE_OUTPUT" | sed -n 's/.*"fn_return".*"i128":"\([0-9]*\)".*/\1/p' | head -1)
 
             EXPECTED_SELLER=950000000
             if [ "$SELLER_BALANCE" = "$EXPECTED_SELLER" ]; then

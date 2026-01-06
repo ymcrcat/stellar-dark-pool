@@ -8,7 +8,6 @@ A Python implementation of the matching engine for the Stellar Dark Pool, rewrit
 - **Soroban Integration**: Directly interacts with the Settlement Contract on Soroban for vault balance checks and settlement submission.
 - **No Horizon Dependency**: Uses Soroban RPC for all blockchain interactions.
 - **SEP-0053 Support**: Implements Stellar Signed Messages for secure order authentication.
-- **API Compatible**: Provides the same REST API endpoints as the Rust implementation.
 
 ## Docker Deployment (Recommended)
 

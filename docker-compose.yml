@@ -18,8 +18,9 @@ services:
       SETTLEMENT_CONTRACT_ID: ${SETTLEMENT_CONTRACT_ID}
 
       # Matching Engine Signing Configuration
-      MATCHING_ENGINE_SIGNING_KEY: ${MATCHING_ENGINE_SIGNING_KEY}
-      MATCHING_ENGINE_KEY_ALIAS: ${MATCHING_ENGINE_KEY_ALIAS:-}
+      # Note: MATCHING_ENGINE_SIGNING_KEY is auto-generated in the container at startup
+      # To use a specific key instead, uncomment and set:
+      # MATCHING_ENGINE_SIGNING_KEY: ${MATCHING_ENGINE_SIGNING_KEY}
 
       # Server Configuration
       REST_PORT: ${REST_PORT:-8080}

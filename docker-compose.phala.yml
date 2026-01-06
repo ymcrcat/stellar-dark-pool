@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  matching-engine:
+    image: ymcrcat/stellar-dark-pool-matching-engine:test
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      REST_PORT: "443"
+      STELLAR_NETWORK_PASSPHRASE: "Public Global Stellar Network ; September 2015"
+      SOROBAN_RPC_URL: "https://soroban-rpc.mainnet.stellar.org"
+      SETTLEMENT_CONTRACT_ID: "${SETTLEMENT_CONTRACT_ID}"
+      DOMAIN_NAME: "stellardark.io"
+      LETSENCRYPT_EMAIL: "admin@stellardark.io"
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      com.phala.tee.enabled: "true"
+      com.phala.app.name: "stellar-darkpool-matching-engine"
+      com.phala.app.version: "1.0.0"

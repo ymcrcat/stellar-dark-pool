@@ -23,19 +23,26 @@ class MatchingEngine:
     async def initialize(self):
         if self._initialized:
             return
-            
+
         try:
             # Fetch supported assets from contract
             self.base_asset = await stellar_service.get_asset_a()
             self.quote_asset = await stellar_service.get_asset_b()
-            
+
+            if not self.base_asset or not self.quote_asset:
+                raise ValueError("Failed to fetch supported assets from settlement contract")
+
             self.orderbook = OrderBook(AssetPair(base=self.base_asset, quote=self.quote_asset))
             self._initialized = True
             logger.info(f"Matching Engine initialized for {self.base_asset}/{self.quote_asset}")
         except Exception as e:
             logger.error(f"Failed to initialize Matching Engine: {e}")
-            # Fallback to defaults from environment if possible, or wait
-            pass
+            logger.error(f"Please ensure:")
+            logger.error(f"  1. SETTLEMENT_CONTRACT_ID is set correctly")
+            logger.error(f"  2. The contract is deployed on the network")
+            logger.error(f"  3. The matching engine account is funded")
+            logger.error(f"  4. The matching engine is authorized (set_matching_engine)")
+            raise  # Re-raise to prevent engine from accepting orders in broken state
 
     async def submit_order(self, order: Order) -> List[Trade]:
         if not self._initialized:
@@ -101,21 +108,55 @@ class MatchingEngine:
         try:
             base_amt = int(trade.quantity * Decimal("10000000"))
             quote_amt = int(trade.quantity * trade.price * Decimal("10000000"))
-            
+
             # Buyer: +Base, -Quote
             self._update_local_balance(trade.buy_user, self.base_asset, base_amt)
             self._update_local_balance(trade.buy_user, self.quote_asset, -quote_amt)
-            
+
             # Seller: -Base, +Quote
             self._update_local_balance(trade.sell_user, self.base_asset, -base_amt)
             self._update_local_balance(trade.sell_user, self.quote_asset, quote_amt)
-            
-            # Trigger settlement in background or return for API to handle
-            # For this simple implementation, we'll let the client trigger settlement
-            # via the /api/v1/settlement/submit endpoint
-            
+
+            # Automatically settle the trade on-chain
+            await self._settle_trade(trade, base_amt, quote_amt)
+
         except Exception as e:
-            logger.error(f"Error updating local balances: {e}")
+            logger.error(f"Error processing trade: {e}")
+            raise
+
+    async def _settle_trade(self, trade: Trade, base_amt: int, quote_amt: int):
+        """Automatically settle a matched trade on-chain"""
+        try:
+            from .types import SettlementInstruction
+
+            # Create settlement instruction
+            instruction = SettlementInstruction(
+                trade_id=trade.trade_id,
+                buy_user=trade.buy_user,
+                sell_user=trade.sell_user,
+                base_asset=trade.asset_pair.base,
+                quote_asset=trade.asset_pair.quote,
+                base_amount=base_amt,
+                quote_amount=quote_amt,
+                fee_base=0,
+                fee_quote=0,
+                timestamp=int(time.time()),
+                buy_order_signature="",  # Not needed for settlement authorization
+                sell_order_signature=""   # Not needed for settlement authorization
+            )
+
+            logger.info(f"Settling trade {trade.trade_id} on-chain: {trade.quantity} @ {trade.price}")
+
+            # Submit settlement transaction
+            tx_hash = await stellar_service.sign_and_submit_settlement(instruction)
+
+            logger.info(f"✓ Trade {trade.trade_id} settled successfully. TX: {tx_hash}")
+            logger.info(f"  View on Stellar Expert: https://stellar.expert/explorer/testnet/tx/{tx_hash}")
+
+        except Exception as e:
+            logger.error(f"✗ Failed to settle trade {trade.trade_id}: {e}")
+            # Don't raise - we don't want to fail the order submission if settlement fails
+            # The trade is already matched locally, settlement can be retried
 
     def _update_local_balance(self, user: str, asset_addr: str, delta: int):
         key = f"{user}:{asset_addr}"

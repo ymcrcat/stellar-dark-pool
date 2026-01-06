@@ -159,19 +159,6 @@ async def get_balances(user_address: str, token: str):
         logger.error(f"Balance check error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/v1/settlement/submit")
-async def submit_settlement(instruction: SettlementInstruction):
-    try:
-        tx_hash = await stellar_service.sign_and_submit_settlement(instruction)
-        return {
-            "status": "submitted",
-            "transaction_hash": tx_hash,
-            "message": "Settlement transaction signed and submitted successfully"
-        }
-    except Exception as e:
-        logger.error(f"Settlement submission failed: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": int(time.time())}

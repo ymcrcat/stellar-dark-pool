@@ -259,9 +259,9 @@ deposit_funds() {
     print_success "Deposits complete"
 }
 
-# Step 8: Submit orders
+# Step 8: Submit orders (settlement happens automatically)
 submit_orders() {
-    print_step "Step 8: Submitting Orders"
+    print_step "Step 8: Submitting Orders (Auto-Settlement Enabled)"
 
     local ts=$(date +%s)
     local order_template='{"order_id":"%s","user_address":"%s","asset_pair":{"base":"XLM","quote":"XLM"},"side":"%s","order_type":"Limit","price":1.0,"quantity":10,"time_in_force":"GTC","timestamp":%d}'
@@ -274,51 +274,22 @@ submit_orders() {
     print_info "Submitting buy order..."
     curl -s -X POST -H "Content-Type: application/json" -d "$buy_req" "${BASE_URL}/api/v1/orders" | jq .
 
-    # Sell Order
+    # Sell Order (this will match and auto-settle!)
     local sell_json=$(printf "$order_template" "order-2" "$USER2_PUBLIC" "Sell" "$ts")
     SELL_SIG=$(python3 scripts/sign_order.py "$USER2_SECRET" "$sell_json")
     local sell_req="${sell_json%\}},\"signature\":\"$SELL_SIG\"}"
 
-    print_info "Submitting sell order..."
+    print_info "Submitting sell order (will match and auto-settle)..."
     local sell_resp=$(curl -s -X POST -H "Content-Type: application/json" -d "$sell_req" "${BASE_URL}/api/v1/orders")
     echo "$sell_resp" | jq .
 
     TRADE_ID=$(echo "$sell_resp" | jq -r '.trades[0].trade_id')
     print_success "Matched Trade ID: $TRADE_ID"
-}
 
-# Step 9: Settlement
-submit_settlement() {
-    print_step "Step 9: Submitting Settlement"
-
-    # Build settlement instruction
-    # Using unequal amounts to demonstrate visible balance changes
-    local settlement_req=$(cat <<EOF
-{
-  "trade_id": "$TRADE_ID",
-  "buy_user": "$USER1_PUBLIC",
-  "sell_user": "$USER2_PUBLIC",
-  "base_asset": "XLM",
-  "quote_asset": "XLM",
-  "base_amount": 100000000,
-  "quote_amount": 50000000,
-  "fee_base": 0,
-  "fee_quote": 0,
-  "timestamp": $(date +%s),
-  "buy_order_signature": "$BUY_SIG",
-  "sell_order_signature": "$SELL_SIG"
-}
-EOF
-)
-
-    print_info "Submitting settlement..."
-    local settle_resp=$(curl -s -X POST -H "Content-Type: application/json" -d "$settlement_req" "${BASE_URL}/api/v1/settlement/submit")
-    echo "$settle_resp" | jq .
-
-    local tx_hash=$(echo "$settle_resp" | jq -r '.transaction_hash // empty')
-    [ -z "$tx_hash" ] && { print_error "Settlement failed"; exit 1; }
-
-    print_success "Settlement successful! TX: $tx_hash"
+    # Wait for settlement to complete
+    print_info "Waiting for automatic settlement to complete..."
+    sleep 10
+    print_success "Settlement should be complete. Check matching engine logs for TX hash."
 }
 
 # Step 10: Verify balances after settlement
@@ -371,8 +342,7 @@ main() {
     register_matching_engine
     start_matching_engine
     deposit_funds
-    submit_orders
-    submit_settlement
+    submit_orders  # Now includes automatic settlement
     verify_balances
 
     print_step "Full E2E Test Completed Successfully"

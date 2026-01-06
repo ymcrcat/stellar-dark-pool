@@ -253,13 +253,14 @@ stellar contract invoke \
 
 ### Endpoints
 
-- `POST /api/v1/orders` - Submit a new order
+- `POST /api/v1/orders` - Submit a new order (automatically settles if matched)
 - `GET /api/v1/orders/{id}` - Get order status
 - `DELETE /api/v1/orders/{id}` - Cancel an order
 - `GET /api/v1/orderbook/{pair}` - Get order book snapshot (top 20 levels)
 - `GET /api/v1/balances` - Query vault balance
-- `POST /api/v1/settlement/submit` - Submit settlement instruction (matching engine only)
 - `GET /health` - Health check
+
+**Note:** Settlement now happens automatically when orders match. There is no manual settlement endpoint.
 
 See [matching-engine/README.md](matching-engine/README.md) for detailed API documentation.
 
@@ -277,9 +278,8 @@ This script:
 2. Builds and deploys the settlement contract
 3. Sets up and starts the matching engine
 4. Creates test accounts and deposits funds
-5. Submits matching orders
-6. Submits settlement transaction
-7. Verifies vault balances changed correctly
+5. Submits matching orders (automatic settlement occurs)
+6. Verifies vault balances changed correctly
 
 ### Run Contract Tests
 
@@ -530,66 +530,30 @@ echo "$MATCH_RESPONSE" | jq
 
 🎉 **Orders matched!** The matching engine found the opposing orders and created a trade.
 
-### Step 8: Submit Settlement to Blockchain
+**Settlement happens automatically!** The matching engine automatically submits the settlement transaction to the blockchain. Check the matching engine terminal/logs to see the settlement transaction hash.
 
-Extract the trade ID from the match response:
+**Expected log output:**
+```
+INFO:     Settling trade 3c030378-c759-4930-b934-a7b2332df02a on-chain: 10 @ 1.0
+INFO:     ✓ Trade 3c030378-c759-4930-b934-a7b2332df02a settled successfully. TX: 7f32dbb3...
+INFO:     View on Stellar Expert: https://stellar.expert/explorer/testnet/tx/7f32dbb3...
+```
+
+**Wait for settlement to complete** (usually 5-10 seconds):
 ```bash
-TRADE_ID=$(echo "$MATCH_RESPONSE" | jq -r '.trades[0].trade_id')
-echo "Trade ID: $TRADE_ID"
+sleep 10
 ```
 
-Create settlement instruction:
-```bash
-# Note: Using different base_amount and quote_amount to demonstrate visible balance changes
-# In production, amounts would match the actual trade price and quantity
-SETTLEMENT=$(cat <<EOF
-{
-  "trade_id": "$TRADE_ID",
-  "buy_user": "$BUYER_ADDRESS",
-  "sell_user": "$SELLER_ADDRESS",
-  "base_asset": "XLM",
-  "quote_asset": "XLM",
-  "base_amount": 100000000,
-  "quote_amount": 50000000,
-  "fee_base": 0,
-  "fee_quote": 0,
-  "timestamp": $(date +%s),
-  "buy_order_signature": "$BUY_SIGNATURE",
-  "sell_order_signature": "$SELL_SIGNATURE"
-}
-EOF
-)
+### Step 8: Verify Settlement on Blockchain
+
+Find the transaction hash from the matching engine logs, then view it on Stellar Expert:
+```
+https://stellar.expert/explorer/testnet/tx/<transaction_hash>
 ```
 
-Submit settlement transaction:
-```bash
-SETTLEMENT_RESPONSE=$(curl -X POST http://localhost:8080/api/v1/settlement/submit \
-  -H "Content-Type: application/json" \
-  -d "$SETTLEMENT")
+You should see the `settle_trade` contract invocation with your buyer and seller addresses.
 
-echo "$SETTLEMENT_RESPONSE" | jq
-```
-
-**Expected output:**
-```json
-{
-  "status": "submitted",
-  "transaction_hash": "7f32dbb3c0820234e519ed5ea00966a3f8a85b315b92a242db2f069c4edaa3ce",
-  "message": "Settlement transaction signed and submitted successfully"
-}
-```
-
-### Step 9: Verify Settlement on Blockchain
-
-View the transaction on Stellar Expert:
-```bash
-TX_HASH=$(echo "$SETTLEMENT_RESPONSE" | jq -r '.transaction_hash')
-echo "View transaction: https://stellar.expert/explorer/testnet/tx/$TX_HASH"
-```
-
-Open that URL in your browser to see the settlement transaction on-chain.
-
-### Step 10: Verify Balances Changed
+### Step 9: Verify Balances Changed
 
 Check that vault balances updated correctly:
 ```bash
@@ -620,7 +584,7 @@ stellar contract invoke \
 
 **Note:** We used unequal amounts (base=10 XLM, quote=5 XLM) to demonstrate visible balance changes. In production with proper price matching, if you trade XLM/XLM at 1:1, balances wouldn't change (buyer receives same amount they pay). For realistic balance changes, use different assets like XLM/USDC.
 
-### Step 11: Check Order Book is Clear
+### Step 10: Check Order Book is Clear
 
 ```bash
 curl http://localhost:8080/api/v1/orderbook/XLM/XLM | jq
@@ -636,8 +600,10 @@ You've successfully:
 - ✅ Created trader accounts and deposited funds
 - ✅ Submitted buy and sell orders
 - ✅ Matched orders off-chain
-- ✅ Settled the trade on-chain
+- ✅ Automatically settled the trade on-chain
 - ✅ Verified balances updated correctly
+
+**Key improvement:** Notice that settlement happened automatically when orders matched - no manual intervention required!
 
 ### Next Steps
 
@@ -649,6 +615,7 @@ You've successfully:
 
 ## Key Features
 
+- **Automatic Settlement**: Trades settle on-chain immediately after matching - no manual intervention
 - **Soroban-native**: Uses only Soroban RPC (no Horizon dependency for matching engine)
 - **Vault Model**: Users deposit assets into the contract; trades settle against vault balances
 - **Order Integrity**: SEP-0053 signatures ensure orders cannot be forged

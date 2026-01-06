@@ -1,19 +1,24 @@
 #!/bin/bash
 
-# End-to-end test script for matching engine (Python version)
+# Semi-automated test script for matching engine API (Python version)
 # This script starts the server, runs curl tests, and cleans up
 #
-# NOTE: This test requires a deployed settlement contract on testnet.
-# The matching engine queries the contract at startup to determine supported assets.
+# IMPORTANT: This test requires MANUAL SETUP before running:
+#   1. Deploy settlement contract on testnet
+#   2. Fund and authorize a matching engine account in the contract
+#   3. Set SETTLEMENT_CONTRACT_ID and MATCHING_ENGINE_SIGNING_KEY environment variables
 #
-# To run a full test with contract deployment, use ../test_e2e_full.sh instead.
+# For FULLY AUTOMATED testing (no manual setup required):
+#   cd .. && bash test_e2e_full.sh
 #
-# To use this test:
-# 1. Deploy a contract using: cd ../contracts/settlement && bash test_contract.sh
-# 2. Set SETTLEMENT_CONTRACT_ID environment variable to the deployed contract ID
-# 3. Run this test: bash test_matching_engine.sh
-#
-# Or just run: cd .. && bash test_e2e_full.sh (recommended)
+# Manual setup steps:
+#   1. Deploy contract: cd ../contracts/settlement && bash test_contract.sh
+#   2. Export SETTLEMENT_CONTRACT_ID=<contract_id_from_deployment>
+#   3. Generate matching engine keypair: stellar keys generate matching-engine --network testnet
+#   4. Fund it: curl "https://friendbot.stellar.org/?addr=$(stellar keys address matching-engine)"
+#   5. Authorize it: stellar contract invoke --id $SETTLEMENT_CONTRACT_ID --source admin --network testnet -- set_matching_engine --matching_engine $(stellar keys address matching-engine)
+#   6. Export MATCHING_ENGINE_SIGNING_KEY=$(stellar keys show matching-engine)
+#   7. Run this test: bash test_matching_engine.sh
 
 set -euo pipefail
 
@@ -178,8 +183,25 @@ else
 fi
 
 # Generate a signing key for the engine (if not set)
-[ -z "${MATCHING_ENGINE_SIGNING_KEY:-}" ] && \
-    export MATCHING_ENGINE_SIGNING_KEY=$(python3 -c "from stellar_sdk import Keypair; print(Keypair.random().secret)")
+if [ -z "${MATCHING_ENGINE_SIGNING_KEY:-}" ]; then
+    MATCHING_ENGINE_SIGNING_KEY=$(python3 -c "from stellar_sdk import Keypair; print(Keypair.random().secret)")
+    export MATCHING_ENGINE_SIGNING_KEY
+
+    MATCHING_ENGINE_PUBLIC=$(python3 -c "from stellar_sdk import Keypair; print(Keypair.from_secret('$MATCHING_ENGINE_SIGNING_KEY').public_key)")
+
+    echo -e "${YELLOW}WARNING: Generated new matching engine keypair${NC}"
+    echo -e "${YELLOW}Public Key: $MATCHING_ENGINE_PUBLIC${NC}"
+    echo -e "${YELLOW}This account needs to be:${NC}"
+    echo -e "${YELLOW}  1. Funded via Friendbot${NC}"
+    echo -e "${YELLOW}  2. Authorized in the contract by the admin${NC}"
+    echo -e ""
+    echo -e "${YELLOW}Run these commands with your admin account:${NC}"
+    echo -e "  curl \"https://friendbot.stellar.org/?addr=$MATCHING_ENGINE_PUBLIC\""
+    echo -e "  stellar contract invoke --id $SETTLEMENT_CONTRACT_ID --source admin --network testnet -- set_matching_engine --matching_engine $MATCHING_ENGINE_PUBLIC"
+    echo -e ""
+    echo -e "${YELLOW}Or use test_e2e_full.sh for fully automated testing.${NC}"
+    echo -e ""
+fi
 
 # Start server in background
 python3 -m src.main > /tmp/matching-engine.log 2>&1 &
@@ -320,31 +342,10 @@ test_endpoint "POST" "/api/v1/orders" "$SELL_ORDER_1" "200" "Submit sell order (
 # Test 4: Get order book
 test_endpoint "GET" "/api/v1/orderbook/XLM%2FXLM" "" 200 "Get order book"
 
-# Test 5: Submit Settlement (simplified)
-# We test submitting the settlement. Since we don't have funds deposited, we expect 400 (balance insufficient)
-# or 500 (if contract execution fails for other reasons).
-# This tests the endpoint connectivity and serialization.
-
-SETTLEMENT_INSTRUCTION=$(cat <<EOF
-{
-  "trade_id": "test-trade-1",
-  "buy_user": "$USER1_PUBLIC",
-  "sell_user": "$USER2_PUBLIC",
-  "base_asset": "XLM",
-  "quote_asset": "XLM",
-  "base_amount": 100000000,
-  "quote_amount": 100000000,
-  "fee_base": 0,
-  "fee_quote": 0,
-  "timestamp": $(date +%s),
-  "buy_order_signature": "buy-sig",
-  "sell_order_signature": "sell-sig"
-}
-EOF
-)
-
-test_endpoint "POST" "/api/v1/settlement/submit" "$SETTLEMENT_INSTRUCTION" "200|400|500" "Submit settlement instruction"
-
+# Test 5: Wait for automatic settlement to complete
+echo -e "\n${YELLOW}Waiting for automatic settlement...${NC}"
+sleep 10
+echo -e "${GREEN}Settlement should be complete. Check /tmp/matching-engine.log for TX hash.${NC}"
 
 # Print summary
 echo -e "\n${GREEN}=== Test Summary ===${NC}"

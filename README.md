@@ -12,6 +12,7 @@ The Stellar Dark Pool is a prototype for privacy-preserving trading on Stellar. 
 - **Automatic Settlement**: Trades settle on-chain immediately after matching
 - **Vault Model**: Users deposit assets into the contract; trades settle against vault balances
 - **Order Integrity**: SEP-0053 signatures ensure orders cannot be forged
+- **TEE Secured**: Matching engine runs in Trusted Execution Environment (see TEE.md)
 - **Instant Settlement**: Pre-locked funds enable guaranteed settlement
 - **Price-Time Priority**: Fair matching with FIFO ordering at each price level
 - **Soroban-native**: Uses only Soroban RPC (no Horizon dependency)
@@ -166,6 +167,7 @@ cd matching-engine && source venv/bin/activate && pytest
 ## Documentation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System design and architecture
+- [TEE.md](TEE.md) - Trusted Execution Environment implementation plan
 - [TUTORIAL.md](TUTORIAL.md) - Complete step-by-step walkthrough
 - [TODO.md](TODO.md) - Planned features and production checklist
 - [RESEARCH.md](RESEARCH.md) - Research on hybrid DEX approaches

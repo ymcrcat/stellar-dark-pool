@@ -99,7 +99,7 @@ create_account() {
 }
 
 # Generate accounts
-for account in admin buyer seller; do
+for account in admin buyer seller tester; do
     create_account "$account"
 done
 
@@ -107,9 +107,10 @@ done
 ADMIN_PUBLIC=$(stellar keys address admin 2>/dev/null | grep -oE '[G][A-Z0-9]{55}' | head -1)
 BUYER_PUBLIC=$(stellar keys address buyer 2>/dev/null | grep -oE '[G][A-Z0-9]{55}' | head -1)
 SELLER_PUBLIC=$(stellar keys address seller 2>/dev/null | grep -oE '[G][A-Z0-9]{55}' | head -1)
+TESTER_PUBLIC=$(stellar keys address tester 2>/dev/null | grep -oE '[G][A-Z0-9]{55}' | head -1)
 
 # Verify addresses
-for var in ADMIN_PUBLIC BUYER_PUBLIC SELLER_PUBLIC; do
+for var in ADMIN_PUBLIC BUYER_PUBLIC SELLER_PUBLIC TESTER_PUBLIC; do
     addr="${!var}"
     [ -z "$addr" ] || [ ${#addr} -ne 56 ] && {
         echo -e "${RED}Error: Could not get ${var,,} address${NC}"
@@ -120,12 +121,13 @@ done
 echo "  Admin: $ADMIN_PUBLIC"
 echo "  Buyer: $BUYER_PUBLIC"
 echo "  Seller: $SELLER_PUBLIC"
+echo "  Tester: $TESTER_PUBLIC"
 echo ""
 
 # Fund accounts (for testnet)
 if [ "$NETWORK" = "testnet" ]; then
     echo -e "${YELLOW}Funding test accounts...${NC}"
-    for account in "admin:$ADMIN_PUBLIC" "buyer:$BUYER_PUBLIC" "seller:$SELLER_PUBLIC"; do
+    for account in "admin:$ADMIN_PUBLIC" "buyer:$BUYER_PUBLIC" "seller:$SELLER_PUBLIC" "tester:$TESTER_PUBLIC"; do
         IFS=':' read -r name addr <<< "$account"
         echo -n "  Funding $name... "
         curl -s -X POST "$FRIENDBOT_URL?addr=$addr" > /dev/null 2>&1 && echo "done" || echo "skipped"
@@ -229,7 +231,7 @@ else
         shift
         stellar contract invoke \
             --id "$CONTRACT_ID" \
-            --source-account buyer \
+            --source-account tester \
             --network "$NETWORK" \
             --verbose \
             -- \
@@ -239,7 +241,7 @@ else
 
     # Check initial balance
     echo -n "  Checking initial balance... "
-    INITIAL_BALANCE_OUTPUT=$(invoke_contract get_balance --user "$BUYER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
+    INITIAL_BALANCE_OUTPUT=$(invoke_contract get_balance --user "$TESTER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
     INITIAL_BALANCE=$(echo "$INITIAL_BALANCE_OUTPUT" | grep -oE '[0-9]+' | head -1 || echo "0")
     extract_logs "$INITIAL_BALANCE_OUTPUT"
 
@@ -252,7 +254,7 @@ else
     # Test deposit
     echo -n "  Depositing $amount stroops (1 XLM)... "
     set +e
-    DEPOSIT_RESULT=$(invoke_contract deposit --user "$BUYER_PUBLIC" --token "$NATIVE_XLM_CONTRACT" --amount "$amount")
+    DEPOSIT_RESULT=$(invoke_contract deposit --user "$TESTER_PUBLIC" --token "$NATIVE_XLM_CONTRACT" --amount "$amount")
     DEPOSIT_EXIT=$?
     set -e
     extract_logs "$DEPOSIT_RESULT"
@@ -262,7 +264,7 @@ else
 
         # Check balance after deposit
         echo -n "  Checking balance after deposit... "
-        BALANCE_AFTER_OUTPUT=$(invoke_contract get_balance --user "$BUYER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
+        BALANCE_AFTER_OUTPUT=$(invoke_contract get_balance --user "$TESTER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
         BALANCE_AFTER=$(echo "$BALANCE_AFTER_OUTPUT" | grep -oE '[0-9]+' | head -1 || echo "0")
         extract_logs "$BALANCE_AFTER_OUTPUT"
 
@@ -272,7 +274,7 @@ else
             # Test withdraw
             echo -n "  Testing withdraw... "
             set +e
-            WITHDRAW_RESULT=$(invoke_contract withdraw --user "$BUYER_PUBLIC" --token "$NATIVE_XLM_CONTRACT" --amount "$amount")
+            WITHDRAW_RESULT=$(invoke_contract withdraw --user "$TESTER_PUBLIC" --token "$NATIVE_XLM_CONTRACT" --amount "$amount")
             WITHDRAW_EXIT=$?
             set -e
             extract_logs "$WITHDRAW_RESULT"
@@ -281,7 +283,7 @@ else
                 echo -e "${GREEN}✓ Withdraw succeeded${NC}"
 
                 # Check final balance
-                BALANCE_FINAL_OUTPUT=$(invoke_contract get_balance --user "$BUYER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
+                BALANCE_FINAL_OUTPUT=$(invoke_contract get_balance --user "$TESTER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
                 BALANCE_FINAL=$(echo "$BALANCE_FINAL_OUTPUT" | grep -oE '[0-9]+' | head -1 || echo "0")
                 extract_logs "$BALANCE_FINAL_OUTPUT"
 
@@ -411,17 +413,25 @@ else
         echo "  Settling trade: $BASE_AMOUNT stroops base, $QUOTE_AMOUNT stroops quote"
         echo -n "  Calling settle_trade as matching engine... "
 
+        # Create instruction JSON with proper Soroban type specifications
+        INSTRUCTION_JSON=$(cat <<EOF
+{
+  "trade_id": {"bytes": "$TRADE_ID"},
+  "buy_user": "$BUYER_PUBLIC",
+  "sell_user": "$SELLER_PUBLIC",
+  "base_asset": "$NATIVE_XLM_CONTRACT",
+  "quote_asset": "$NATIVE_XLM_CONTRACT",
+  "base_amount": {"i128": "$BASE_AMOUNT"},
+  "quote_amount": {"i128": "$QUOTE_AMOUNT"},
+  "fee_base": {"i128": "0"},
+  "fee_quote": {"i128": "0"},
+  "timestamp": {"u64": "$(date +%s)"}
+}
+EOF
+)
+
         set +e
-        SETTLE_RESULT=$(invoke_as admin settle_trade \
-            --trade_id "$TRADE_ID" \
-            --buy_user "$BUYER_PUBLIC" \
-            --sell_user "$SELLER_PUBLIC" \
-            --base_asset "$NATIVE_XLM_CONTRACT" \
-            --quote_asset "$NATIVE_XLM_CONTRACT" \
-            --base_amount "$BASE_AMOUNT" \
-            --quote_amount "$QUOTE_AMOUNT" \
-            --fee_base 0 \
-            --fee_quote 0)
+        SETTLE_RESULT=$(invoke_as admin settle_trade --instruction "$INSTRUCTION_JSON")
         SETTLE_EXIT=$?
         set -e
         extract_logs "$SETTLE_RESULT"
@@ -432,8 +442,9 @@ else
             # Verify buyer balance (should be 1000000000 + 100000000 - 50000000 = 1050000000)
             echo -n "  Checking buyer balance after settlement... "
             BUYER_BALANCE_OUTPUT=$(invoke_as buyer get_balance --user "$BUYER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
-            BUYER_BALANCE=$(echo "$BUYER_BALANCE_OUTPUT" | grep -oE '[0-9]+' | head -1 || echo "0")
             extract_logs "$BUYER_BALANCE_OUTPUT"
+            # Extract balance from either direct output line or from fn_return log
+            BUYER_BALANCE=$(echo "$BUYER_BALANCE_OUTPUT" | grep -E '^"[0-9]+"$' | tr -d '"' || echo "$BUYER_BALANCE_OUTPUT" | sed -n 's/.*"fn_return".*"i128":"\([0-9]*\)".*/\1/p' | head -1)
 
             EXPECTED_BUYER=1050000000
             if [ "$BUYER_BALANCE" = "$EXPECTED_BUYER" ]; then
@@ -445,8 +456,8 @@ else
             # Verify seller balance (should be 1000000000 - 100000000 + 50000000 = 950000000)
             echo -n "  Checking seller balance after settlement... "
             SELLER_BALANCE_OUTPUT=$(invoke_as seller get_balance --user "$SELLER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
-            SELLER_BALANCE=$(echo "$SELLER_BALANCE_OUTPUT" | grep -oE '[0-9]+' | head -1 || echo "0")
             extract_logs "$SELLER_BALANCE_OUTPUT"
+            SELLER_BALANCE=$(echo "$SELLER_BALANCE_OUTPUT" | sed -n 's/.*"i128":"\([0-9]*\)".*/\1/p' | head -1)
 
             EXPECTED_SELLER=950000000
             if [ "$SELLER_BALANCE" = "$EXPECTED_SELLER" ]; then

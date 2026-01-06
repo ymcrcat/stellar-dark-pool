@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   matching-engine:
-    image: ymcrcat/stellar-dark-pool-matching-engine:test
+    image: ymcrcat/stellar-dark-pool-matching-engine:latest
     ports:
       - "80:80"
       - "443:443"
@@ -19,11 +19,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 4G
-        reservations:
           cpus: '1'
           memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health').read()"]
       interval: 30s

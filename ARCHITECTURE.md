@@ -618,11 +618,12 @@ The function returns a success result if all steps complete successfully.
 POST   /api/v1/orders              # Submit order
 DELETE /api/v1/orders/:id          # Cancel order
 GET    /api/v1/orders/:id          # Get order status
-GET    /api/v1/orders               # List user orders
+GET    /api/v1/orders               # List user orders (Planned)
 GET    /api/v1/orderbook/:pair      # Get order book snapshot
-GET    /api/v1/trades               # Get trade history
-POST   /api/v1/settlement/submit   # Sign and submit settlement
+GET    /api/v1/trades               # Get trade history (Planned)
 GET    /health                      # Health check
+
+**Note:** Settlement happens automatically when orders match. No manual settlement endpoint exists.
 ```
 
 ### WebSocket API (Planned)

@@ -97,9 +97,11 @@ docker exec -it matching-engine bash
 
 ## API Endpoints
 
-- `POST /api/v1/orders`: Submit an order
+- `POST /api/v1/orders`: Submit an order (automatically settles if matched)
 - `GET /api/v1/orders/{id}`: Get order status
 - `DELETE /api/v1/orders/{id}`: Cancel an order
 - `GET /api/v1/orderbook/{pair}`: Get order book snapshot
 - `GET /api/v1/balances`: Check vault balance
-- `POST /api/v1/settlement/submit`: Submit a settlement instruction
+- `GET /health`: Health check
+
+**Note:** Settlement happens automatically when orders match - no manual settlement endpoint.

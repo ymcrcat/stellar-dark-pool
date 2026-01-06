@@ -43,7 +43,6 @@ def mock_stellar():
         mock.verify_order_signature = MagicMock(return_value=True)
         mock.get_contract_address = MagicMock(side_effect=lambda x: f"C{x}CONTRACT")
         mock.get_vault_balance = AsyncMock(return_value=1000000000)
-        mock.sign_and_submit_settlement = AsyncMock(return_value="tx-hash-123")
         yield mock
 
 
@@ -166,32 +165,6 @@ def test_get_orderbook_invalid_format(client, mock_engine, mock_stellar):
     response = client.get("/api/v1/orderbook/INVALID")
 
     assert response.status_code == 400
-
-
-def test_submit_settlement(client, mock_engine, mock_stellar):
-    """Test submitting settlement instruction."""
-    keypair1 = Keypair.random()
-    keypair2 = Keypair.random()
-
-    settlement_data = {
-        "trade_id": "trade-123",
-        "buy_user": keypair1.public_key,
-        "sell_user": keypair2.public_key,
-        "base_asset": "XLM",
-        "quote_asset": "USDC",
-        "base_amount": 1000000000,
-        "quote_amount": 1500000000,
-        "fee_base": 0,
-        "fee_quote": 0,
-        "timestamp": 1234567890
-    }
-
-    response = client.post("/api/v1/settlement/submit", json=settlement_data)
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "submitted"
-    assert "transaction_hash" in data
 
 
 def test_get_balances(client, mock_engine, mock_stellar):

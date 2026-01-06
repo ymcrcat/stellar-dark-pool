@@ -23,11 +23,10 @@ A Python implementation of the matching engine for the Stellar Dark Pool, rewrit
    ```
 
 2. **Configure environment variables**:
-   Edit `.env` and set your configuration:
+   Edit `.env` and set your settlement contract ID:
    ```bash
    SETTLEMENT_CONTRACT_ID=<YOUR_CONTRACT_ID>
-   MATCHING_ENGINE_SIGNING_KEY=<YOUR_SECRET_KEY>
-   # Adjust other settings as needed
+   # Other settings use sensible defaults
    ```
 
 3. **Build and run with Docker Compose** (from project root):
@@ -36,15 +35,44 @@ A Python implementation of the matching engine for the Stellar Dark Pool, rewrit
    docker-compose up -d
    ```
 
-4. **Check logs**:
+4. **Check logs to see the generated keypair**:
    ```bash
-   docker-compose logs -f matching-engine
+   docker-compose logs matching-engine
    ```
+   The container automatically generates a new Stellar keypair on startup and displays the public key.
 
 5. **Stop the service**:
    ```bash
    docker-compose down
    ```
+
+### Automatic Key Generation
+
+**When running in Docker**, the matching engine ALWAYS generates an ephemeral Stellar keypair at container startup. This keypair is:
+
+- ✅ **Ephemeral**: Regenerated on each container restart
+- ✅ **Automatic**: No manual key management needed
+- ✅ **Logged**: Public key displayed in container logs for funding/authorization
+
+**Important Notes:**
+- Keys are automatically generated and cannot be overridden
+- Perfect for **development, testing, and stateless deployments**
+- Each container restart generates a new keypair
+- Don't forget to **fund** and **authorize** the generated address in your settlement contract
+
+**To fund and authorize the auto-generated key:**
+```bash
+# 1. Get the public key from logs
+docker-compose logs matching-engine | grep "Public Key"
+
+# 2. Fund via Friendbot (testnet)
+curl "https://friendbot.stellar.org/?addr=<PUBLIC_KEY>"
+
+# 3. Authorize in settlement contract
+stellar contract invoke --id $SETTLEMENT_CONTRACT_ID \
+  --source admin --network testnet -- \
+  set_matching_engine --matching_engine <PUBLIC_KEY>
+```
 
 ### Docker Commands
 

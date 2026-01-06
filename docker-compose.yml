@@ -5,6 +5,9 @@ services:
     build:
       context: ./matching-engine
       dockerfile: Dockerfile
+      platforms: 
+        - linux/amd64
+        - linux/arm64
     container_name: stellar-darkpool-matching-engine
     ports:
       - "${REST_PORT:-8080}:${REST_PORT:-8080}"

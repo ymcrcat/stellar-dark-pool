@@ -121,11 +121,11 @@ impl SettlementContract {
              return SettlementResult::InvalidMatchingProof;
         }
 
-        log!(&env, "settle_trade: Assets verified, skipping authorization for now");
-        // TODO: Re-enable authorization check after testing
-        // if let Some(matching_engine) = storage::get_matching_engine(&env) {
-        //     matching_engine.require_auth();
-        // }
+        log!(&env, "settle_trade: Verifying matching engine authorization");
+        match storage::get_matching_engine(&env) {
+            Some(matching_engine) => matching_engine.require_auth(),
+            None => panic!("Matching engine not set"),
+        }
 
         // Skip signature and proof verification for now
         log!(&env, "settle_trade: Skipping verification (simplified flow)");

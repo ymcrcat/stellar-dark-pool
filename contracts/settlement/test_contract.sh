@@ -20,6 +20,13 @@ extract_logs() {
         echo -e "${BLUE}  Contract logs:${NC}"
         # Extract log lines (look for lines containing "log" or "Log")
         echo "$output" | grep -iE "log" | sed 's/^/    /' || true
+    else
+        # Surface useful error context even when logs are not emitted.
+        if echo "$output" | grep -qiE "error|failed|status|auth|unauthorized|denied"; then
+            echo ""
+            echo -e "${BLUE}  Error output:${NC}"
+            echo "$output" | grep -iE "error|failed|status|auth|unauthorized|denied" | sed 's/^/    /' || true
+        fi
     fi
 }
 
@@ -411,7 +418,6 @@ else
         QUOTE_AMOUNT=50000000
 
         echo "  Settling trade: $BASE_AMOUNT stroops base, $QUOTE_AMOUNT stroops quote"
-        echo -n "  Calling settle_trade as matching engine... "
 
         # Create instruction JSON with proper Soroban type specifications
         INSTRUCTION_JSON=$(cat <<EOF
@@ -430,6 +436,20 @@ else
 EOF
 )
 
+        echo -n "  Attempting unauthorized settle_trade as tester... "
+        set +e
+        UNAUTHORIZED_RESULT=$(invoke_as tester settle_trade --instruction "$INSTRUCTION_JSON")
+        UNAUTHORIZED_EXIT=$?
+        set -e
+        extract_logs "$UNAUTHORIZED_RESULT"
+
+        if [ $UNAUTHORIZED_EXIT -ne 0 ]; then
+            echo -e "${GREEN}✓ Unauthorized settlement rejected (expected)${NC}"
+        else
+            echo -e "${YELLOW}Unauthorized settlement succeeded (unexpected)${NC}"
+        fi
+
+        echo -n "  Calling settle_trade as matching engine... "
         set +e
         SETTLE_RESULT=$(invoke_as admin settle_trade --instruction "$INSTRUCTION_JSON")
         SETTLE_EXIT=$?

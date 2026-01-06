@@ -1,7 +1,10 @@
 #![cfg(test)]
 
 use super::*;
-use soroban_sdk::{testutils::Address as _, Address, BytesN, Env};
+use soroban_sdk::{
+    testutils::{Address as _, MockAuth, MockAuthInvoke},
+    Address, BytesN, Env, IntoVal,
+};
 
 fn create_test_env() -> Env {
     let env = Env::default();
@@ -237,6 +240,62 @@ fn test_settle_trade_matching_engine_authorization() {
     // Note: To test that non-matching-engine accounts CANNOT call settle_trade,
     // we would need integration tests without mock_all_auths().
     // In unit tests with mock_all_auths(), all auth checks pass.
+}
+
+#[test]
+#[should_panic]
+fn test_settle_trade_unauthorized() {
+    let env = Env::default();
+    let admin = create_test_address(&env, "admin");
+    let token_a = create_test_address(&env, "token_a");
+    let token_b = create_test_address(&env, "token_b");
+    let contract_id = env.register(SettlementContract, (admin.clone(), token_a.clone(), token_b.clone()));
+    let client = SettlementContractClient::new(&env, &contract_id);
+    let buy_user = create_test_address(&env, "buyer");
+    let sell_user = create_test_address(&env, "seller");
+    let matching_engine = create_test_address(&env, "matching_engine");
+    let unauthorized = create_test_address(&env, "unauthorized");
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &admin,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "set_matching_engine",
+                args: (matching_engine.clone(),).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .set_matching_engine(&matching_engine);
+
+    use crate::storage;
+    let base_token_contract = token_a.clone();
+    let quote_token_contract = token_b.clone();
+
+    env.as_contract(&contract_id, || {
+        storage::set_balance(&env, &sell_user, &base_token_contract, 200_000_000);
+        storage::set_balance(&env, &buy_user, &quote_token_contract, 200_000_000);
+    });
+
+    let instruction = create_test_settlement_instruction(
+        &env,
+        &buy_user,
+        &sell_user,
+        &base_token_contract,
+        &quote_token_contract,
+    );
+
+    client
+        .mock_auths(&[MockAuth {
+            address: &unauthorized,
+            invoke: &MockAuthInvoke {
+                contract: &contract_id,
+                fn_name: "settle_trade",
+                args: (instruction.clone(),).into_val(&env),
+                sub_invokes: &[],
+            },
+        }])
+        .settle_trade(&instruction);
 }
 
 #[test]

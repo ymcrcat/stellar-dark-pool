@@ -291,7 +291,8 @@ submit_orders() {
 submit_settlement() {
     print_step "Step 9: Submitting Settlement"
 
-    # Build settlement instruction (10 units at price 1.0 = 100M stroops each)
+    # Build settlement instruction
+    # Using unequal amounts to demonstrate visible balance changes
     local settlement_req=$(cat <<EOF
 {
   "trade_id": "$TRADE_ID",
@@ -300,7 +301,7 @@ submit_settlement() {
   "base_asset": "XLM",
   "quote_asset": "XLM",
   "base_amount": 100000000,
-  "quote_amount": 100000000,
+  "quote_amount": 50000000,
   "fee_base": 0,
   "fee_quote": 0,
   "timestamp": $(date +%s),
@@ -320,6 +321,45 @@ EOF
     print_success "Settlement successful! TX: $tx_hash"
 }
 
+# Step 10: Verify balances after settlement
+verify_balances() {
+    print_step "Step 10: Verifying Balances After Settlement"
+
+    # Check buyer balance (should be 1050000000 = 105 XLM)
+    print_info "Checking buyer balance..."
+    local buyer_balance=$(stellar contract invoke \
+        --id "$CONTRACT_ID" \
+        --source e2e_user1 \
+        --network testnet \
+        -- get_balance \
+        --user "$USER1_PUBLIC" \
+        --token "$BASE_TOKEN_ID" 2>&1 | grep -o '"[0-9]*"' | tr -d '"')
+
+    print_info "Buyer balance: $buyer_balance (expected: 1050000000)"
+
+    # Check seller balance (should be 950000000 = 95 XLM)
+    print_info "Checking seller balance..."
+    local seller_balance=$(stellar contract invoke \
+        --id "$CONTRACT_ID" \
+        --source e2e_user2 \
+        --network testnet \
+        -- get_balance \
+        --user "$USER2_PUBLIC" \
+        --token "$BASE_TOKEN_ID" 2>&1 | grep -o '"[0-9]*"' | tr -d '"')
+
+    print_info "Seller balance: $seller_balance (expected: 950000000)"
+
+    # Verify balances are correct
+    if [ "$buyer_balance" = "1050000000" ] && [ "$seller_balance" = "950000000" ]; then
+        print_success "Balance verification passed!"
+    else
+        print_error "Balance verification failed!"
+        print_error "Expected: Buyer=1050000000, Seller=950000000"
+        print_error "Got: Buyer=$buyer_balance, Seller=$seller_balance"
+        exit 1
+    fi
+}
+
 # Main
 main() {
     setup_python
@@ -333,7 +373,8 @@ main() {
     deposit_funds
     submit_orders
     submit_settlement
-    
+    verify_balances
+
     print_step "Full E2E Test Completed Successfully"
 }
 

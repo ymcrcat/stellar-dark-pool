@@ -278,7 +278,8 @@ This script:
 3. Sets up and starts the matching engine
 4. Creates test accounts and deposits funds
 5. Submits matching orders
-6. Verifies settlement on-chain
+6. Submits settlement transaction
+7. Verifies vault balances changed correctly
 
 ### Run Contract Tests
 
@@ -539,6 +540,8 @@ echo "Trade ID: $TRADE_ID"
 
 Create settlement instruction:
 ```bash
+# Note: Using different base_amount and quote_amount to demonstrate visible balance changes
+# In production, amounts would match the actual trade price and quantity
 SETTLEMENT=$(cat <<EOF
 {
   "trade_id": "$TRADE_ID",
@@ -547,7 +550,7 @@ SETTLEMENT=$(cat <<EOF
   "base_asset": "XLM",
   "quote_asset": "XLM",
   "base_amount": 100000000,
-  "quote_amount": 100000000,
+  "quote_amount": 50000000,
   "fee_base": 0,
   "fee_quote": 0,
   "timestamp": $(date +%s),
@@ -590,7 +593,8 @@ Open that URL in your browser to see the settlement transaction on-chain.
 
 Check that vault balances updated correctly:
 ```bash
-# Buyer balance (should be 900000000 = 90 XLM, since they bought 10 XLM worth)
+# Buyer balance (should be 1050000000 = 105 XLM)
+# Started with 100 XLM, received 10 XLM base, paid 5 XLM quote = net +5 XLM
 stellar contract invoke \
   --id $SETTLEMENT_CONTRACT_ID \
   --source buyer \
@@ -599,7 +603,8 @@ stellar contract invoke \
   --user $BUYER_ADDRESS \
   --token $TOKEN_ID
 
-# Seller balance (should be 900000000 = 90 XLM, since they sold 10 XLM worth)
+# Seller balance (should be 950000000 = 95 XLM)
+# Started with 100 XLM, paid 10 XLM base, received 5 XLM quote = net -5 XLM
 stellar contract invoke \
   --id $SETTLEMENT_CONTRACT_ID \
   --source seller \
@@ -609,7 +614,11 @@ stellar contract invoke \
   --token $TOKEN_ID
 ```
 
-**Note:** In this demo, base_amount = quote_amount because we used XLM for both sides at price 1.0. In a real XLM/USDC trade, the amounts would differ based on the price.
+**Expected changes:**
+- Buyer: 1000000000 → 1050000000 (+50000000 stroops = +5 XLM)
+- Seller: 1000000000 → 950000000 (-50000000 stroops = -5 XLM)
+
+**Note:** We used unequal amounts (base=10 XLM, quote=5 XLM) to demonstrate visible balance changes. In production with proper price matching, if you trade XLM/XLM at 1:1, balances wouldn't change (buyer receives same amount they pay). For realistic balance changes, use different assets like XLM/USDC.
 
 ### Step 11: Check Order Book is Clear
 

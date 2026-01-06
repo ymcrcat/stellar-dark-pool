@@ -121,10 +121,30 @@ See [matching-engine/README.md](matching-engine/README.md) for detailed API docu
 
 ## Testing
 
-```bash
-# End-to-end test
-bash test_e2e_full.sh
+### End-to-End Tests
 
+Two E2E test scripts are available:
+
+**Docker-based (Recommended)**:
+```bash
+./test_e2e_docker.sh
+```
+- Uses Docker container for matching engine
+- No Python environment setup required
+- Automatic keypair generation
+- Matches production deployment pattern
+
+**Python-based**:
+```bash
+./test_e2e_full.sh
+```
+- Runs matching engine as local Python process
+- Requires Python venv setup
+- Uses Stellar CLI key aliases
+
+### Unit Tests
+
+```bash
 # Contract tests
 cd contracts/settlement && cargo test
 

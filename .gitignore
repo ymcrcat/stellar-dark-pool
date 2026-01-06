@@ -30,6 +30,9 @@ venv/
 env/
 ENV/
 
+# Environment files
+.env
+
 # Logs
 *.log
 

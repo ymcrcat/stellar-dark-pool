@@ -162,3 +162,9 @@ async def get_balances(user_address: str, token: str):
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": int(time.time())}
+
+@app.post("/api/v1/admin/clear_cache")
+async def clear_balance_cache(eng: MatchingEngine = Depends(get_engine)):
+    """Clear the vault balance cache to force fresh queries"""
+    eng.vault_balances.clear()
+    return {"status": "success", "message": "Balance cache cleared"}

@@ -48,15 +48,16 @@ A Python implementation of the matching engine for the Stellar Dark Pool, rewrit
 
 ### Automatic Key Generation
 
-**When running in Docker**, the matching engine automatically generates an ephemeral Stellar keypair at container startup. This keypair is:
+**When running in Docker**, the matching engine ALWAYS generates an ephemeral Stellar keypair at container startup. This keypair is:
 
 - ✅ **Ephemeral**: Regenerated on each container restart
 - ✅ **Automatic**: No manual key management needed
 - ✅ **Logged**: Public key displayed in container logs for funding/authorization
 
 **Important Notes:**
-- The generated keypair is perfect for **development and testing**
-- For **production**, you can override this by setting `MATCHING_ENGINE_SIGNING_KEY` in your `.env` file
+- Keys are automatically generated and cannot be overridden
+- Perfect for **development, testing, and stateless deployments**
+- Each container restart generates a new keypair
 - Don't forget to **fund** and **authorize** the generated address in your settlement contract
 
 **To fund and authorize the auto-generated key:**

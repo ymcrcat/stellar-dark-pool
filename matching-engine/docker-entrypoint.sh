@@ -8,14 +8,12 @@ echo "========================================="
 # Always generate ephemeral Stellar keypair
 echo "Generating ephemeral Stellar keypair..."
 
-# Generate a new keypair using stellar CLI
-stellar keys generate matching-engine --network ${STELLAR_NETWORK_PASSPHRASE:-testnet} --no-fund > /dev/null 2>&1 || true
+# Generate a new keypair using Python stellar-sdk
+KEYPAIR_DATA=$(python3 -c "from stellar_sdk import Keypair; kp = Keypair.random(); print(f'{kp.secret}|{kp.public_key}')")
 
-# Get the secret key
-export MATCHING_ENGINE_SIGNING_KEY=$(stellar keys show matching-engine)
-
-# Get the public key for logging
-MATCHING_ENGINE_PUBLIC=$(stellar keys address matching-engine)
+# Extract secret and public keys
+export MATCHING_ENGINE_SIGNING_KEY=$(echo "$KEYPAIR_DATA" | cut -d'|' -f1)
+MATCHING_ENGINE_PUBLIC=$(echo "$KEYPAIR_DATA" | cut -d'|' -f2)
 
 echo "✓ Generated new keypair:"
 echo "  Public Key:  $MATCHING_ENGINE_PUBLIC"
@@ -27,7 +25,7 @@ echo ""
 echo "  1. Fund via Friendbot (testnet):"
 echo "     curl \"https://friendbot.stellar.org/?addr=$MATCHING_ENGINE_PUBLIC\""
 echo ""
-echo "  2. Authorize in settlement contract:"
+echo "  2. Authorize in settlement contract (using Stellar CLI on host):"
 echo "     stellar contract invoke --id \$SETTLEMENT_CONTRACT_ID \\"
 echo "       --source admin --network testnet -- \\"
 echo "       set_matching_engine --matching_engine $MATCHING_ENGINE_PUBLIC"

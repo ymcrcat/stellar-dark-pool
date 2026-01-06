@@ -21,18 +21,6 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies for Stellar CLI
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install Stellar CLI
-RUN curl -L https://github.com/stellar/stellar-cli/releases/download/v21.5.0/stellar-cli-21.5.0-x86_64-unknown-linux-gnu.tar.gz -o stellar.tar.gz && \
-    tar -xzf stellar.tar.gz && \
-    mv stellar /usr/local/bin/stellar && \
-    chmod +x /usr/local/bin/stellar && \
-    rm stellar.tar.gz
-
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
@@ -46,9 +34,7 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
-    chown -R appuser:appuser /app && \
-    mkdir -p /home/appuser/.stellar && \
-    chown -R appuser:appuser /home/appuser/.stellar
+    chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser

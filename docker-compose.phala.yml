@@ -8,8 +8,8 @@ services:
       - "443:443"
     environment:
       REST_PORT: "443"
-      STELLAR_NETWORK_PASSPHRASE: "Public Global Stellar Network ; September 2015"
-      SOROBAN_RPC_URL: "https://soroban-rpc.mainnet.stellar.org"
+      STELLAR_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+      SOROBAN_RPC_URL: "https://soroban-testnet.stellar.org"
       SETTLEMENT_CONTRACT_ID: "${SETTLEMENT_CONTRACT_ID}"
       DOMAIN_NAME: "stellardark.io"
       LETSENCRYPT_EMAIL: "admin@stellardark.io"

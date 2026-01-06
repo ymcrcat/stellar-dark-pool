@@ -264,7 +264,7 @@ submit_orders() {
     print_step "Step 8: Submitting Orders (Auto-Settlement Enabled)"
 
     local ts=$(date +%s)
-    local order_template='{"order_id":"%s","user_address":"%s","asset_pair":{"base":"XLM","quote":"XLM"},"side":"%s","order_type":"Limit","price":1.0,"quantity":10,"time_in_force":"GTC","timestamp":%d}'
+    local order_template='{"order_id":"%s","user_address":"%s","asset_pair":{"base":"XLM","quote":"XLM"},"side":"%s","order_type":"Limit","price":0.5,"quantity":10,"time_in_force":"GTC","timestamp":%d}'
 
     # Buy Order
     local buy_json=$(printf "$order_template" "order-1" "$USER1_PUBLIC" "Buy" "$ts")

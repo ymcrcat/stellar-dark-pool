@@ -21,6 +21,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# System dependencies for ACME + TLS
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates openssl certbot && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
@@ -36,8 +41,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
     chown -R appuser:appuser /app
 
-# Switch to non-root user
-USER appuser
+# Run as root to allow ACME client to bind privileged ports and manage certs
+USER root
 
 # Expose the default REST API port
 EXPOSE 8080

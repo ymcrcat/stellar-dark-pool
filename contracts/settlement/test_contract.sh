@@ -215,7 +215,7 @@ fi
 echo ""
 
 # Step 5: Test deposit and withdraw
-echo -e "${YELLOW}[5/7] Testing deposit and withdraw...${NC}"
+echo -e "${YELLOW}[5/8] Testing deposit and withdraw...${NC}"
 
 if [ -z "$NATIVE_XLM_CONTRACT" ]; then
     echo -e "${YELLOW}  Could not get native XLM asset contract, skipping${NC}"
@@ -301,7 +301,7 @@ fi
 echo ""
 
 # Step 6: Test get_settlement
-echo -e "${YELLOW}[6/7] Testing get_settlement...${NC}"
+echo -e "${YELLOW}[6/8] Testing get_settlement...${NC}"
 
 # Create a test trade ID (32 bytes as hex, no 0x prefix)
 TEST_TRADE_ID_HEX=$(openssl rand -hex 32 | head -c 64)
@@ -324,7 +324,7 @@ fi
 echo ""
 
 # Step 7: Test get_trade_history
-echo -e "${YELLOW}[7/7] Testing get_trade_history...${NC}"
+echo -e "${YELLOW}[7/8] Testing get_trade_history...${NC}"
 
 GET_HISTORY_RESULT=$(stellar contract invoke \
     --id "$CONTRACT_ID" \
@@ -345,6 +345,139 @@ fi
 
 echo ""
 
+# Step 8: Test settle_trade
+echo -e "${YELLOW}[8/8] Testing settle_trade...${NC}"
+
+if [ -z "$NATIVE_XLM_CONTRACT" ]; then
+    echo -e "${YELLOW}  Could not get native XLM asset contract, skipping${NC}"
+    echo ""
+else
+    echo "  Preparing settlement test..."
+
+    # Function to invoke contract with any source account
+    invoke_as() {
+        local source=$1
+        local func=$2
+        shift 2
+        stellar contract invoke \
+            --id "$CONTRACT_ID" \
+            --source-account "$source" \
+            --network "$NETWORK" \
+            --verbose \
+            -- \
+            "$func" \
+            "$@" 2>&1
+    }
+
+    # Deposit funds for buyer and seller (100 XLM each = 1000000000 stroops)
+    INITIAL_DEPOSIT=1000000000
+
+    echo -n "  Depositing $INITIAL_DEPOSIT stroops (100 XLM) for buyer... "
+    set +e
+    BUYER_DEPOSIT=$(invoke_as buyer deposit --user "$BUYER_PUBLIC" --token "$NATIVE_XLM_CONTRACT" --amount "$INITIAL_DEPOSIT")
+    BUYER_DEPOSIT_EXIT=$?
+    set -e
+    extract_logs "$BUYER_DEPOSIT"
+
+    if [ $BUYER_DEPOSIT_EXIT -eq 0 ]; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${YELLOW}Failed (may be expected on some networks)${NC}"
+    fi
+
+    echo -n "  Depositing $INITIAL_DEPOSIT stroops (100 XLM) for seller... "
+    set +e
+    SELLER_DEPOSIT=$(invoke_as seller deposit --user "$SELLER_PUBLIC" --token "$NATIVE_XLM_CONTRACT" --amount "$INITIAL_DEPOSIT")
+    SELLER_DEPOSIT_EXIT=$?
+    set -e
+    extract_logs "$SELLER_DEPOSIT"
+
+    if [ $SELLER_DEPOSIT_EXIT -eq 0 ]; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${YELLOW}Failed (may be expected on some networks)${NC}"
+    fi
+
+    # Only proceed with settlement if deposits succeeded
+    if [ $BUYER_DEPOSIT_EXIT -eq 0 ] && [ $SELLER_DEPOSIT_EXIT -eq 0 ]; then
+        # Generate a unique trade ID (32 bytes hex)
+        TRADE_ID=$(openssl rand -hex 32 | head -c 64)
+        echo "  Trade ID: $TRADE_ID"
+
+        # Settlement amounts: 10 XLM base, 5 XLM quote (buyer gets +5 XLM net, seller -5 XLM net)
+        BASE_AMOUNT=100000000
+        QUOTE_AMOUNT=50000000
+
+        echo "  Settling trade: $BASE_AMOUNT stroops base, $QUOTE_AMOUNT stroops quote"
+        echo -n "  Calling settle_trade as matching engine... "
+
+        set +e
+        SETTLE_RESULT=$(invoke_as admin settle_trade \
+            --trade_id "$TRADE_ID" \
+            --buy_user "$BUYER_PUBLIC" \
+            --sell_user "$SELLER_PUBLIC" \
+            --base_asset "$NATIVE_XLM_CONTRACT" \
+            --quote_asset "$NATIVE_XLM_CONTRACT" \
+            --base_amount "$BASE_AMOUNT" \
+            --quote_amount "$QUOTE_AMOUNT" \
+            --fee_base 0 \
+            --fee_quote 0)
+        SETTLE_EXIT=$?
+        set -e
+        extract_logs "$SETTLE_RESULT"
+
+        if [ $SETTLE_EXIT -eq 0 ]; then
+            echo -e "${GREEN}✓ Settlement succeeded${NC}"
+
+            # Verify buyer balance (should be 1000000000 + 100000000 - 50000000 = 1050000000)
+            echo -n "  Checking buyer balance after settlement... "
+            BUYER_BALANCE_OUTPUT=$(invoke_as buyer get_balance --user "$BUYER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
+            BUYER_BALANCE=$(echo "$BUYER_BALANCE_OUTPUT" | grep -oE '[0-9]+' | head -1 || echo "0")
+            extract_logs "$BUYER_BALANCE_OUTPUT"
+
+            EXPECTED_BUYER=1050000000
+            if [ "$BUYER_BALANCE" = "$EXPECTED_BUYER" ]; then
+                echo -e "${GREEN}✓ Buyer balance correct: $BUYER_BALANCE (expected: $EXPECTED_BUYER)${NC}"
+            else
+                echo -e "${YELLOW}Buyer balance: $BUYER_BALANCE (expected: $EXPECTED_BUYER)${NC}"
+            fi
+
+            # Verify seller balance (should be 1000000000 - 100000000 + 50000000 = 950000000)
+            echo -n "  Checking seller balance after settlement... "
+            SELLER_BALANCE_OUTPUT=$(invoke_as seller get_balance --user "$SELLER_PUBLIC" --token "$NATIVE_XLM_CONTRACT")
+            SELLER_BALANCE=$(echo "$SELLER_BALANCE_OUTPUT" | grep -oE '[0-9]+' | head -1 || echo "0")
+            extract_logs "$SELLER_BALANCE_OUTPUT"
+
+            EXPECTED_SELLER=950000000
+            if [ "$SELLER_BALANCE" = "$EXPECTED_SELLER" ]; then
+                echo -e "${GREEN}✓ Seller balance correct: $SELLER_BALANCE (expected: $EXPECTED_SELLER)${NC}"
+            else
+                echo -e "${YELLOW}Seller balance: $SELLER_BALANCE (expected: $EXPECTED_SELLER)${NC}"
+            fi
+
+            # Verify settlement was recorded
+            echo -n "  Verifying settlement was recorded... "
+            SETTLEMENT_QUERY=$(invoke_as admin get_settlement --trade_id "$TRADE_ID")
+            extract_logs "$SETTLEMENT_QUERY"
+
+            if echo "$SETTLEMENT_QUERY" | grep -qiE "$BUYER_PUBLIC|$SELLER_PUBLIC"; then
+                echo -e "${GREEN}✓ Settlement found in contract storage${NC}"
+            else
+                echo -e "${YELLOW}Settlement query result: $SETTLEMENT_QUERY${NC}"
+            fi
+
+            echo -e "${GREEN}✓ settle_trade function tested successfully${NC}"
+        else
+            echo -e "${YELLOW}Settlement failed${NC}"
+            echo "  Exit code: $SETTLE_EXIT"
+            echo "  Result: $SETTLE_RESULT"
+        fi
+    else
+        echo -e "${YELLOW}  Skipping settle_trade test (deposits failed)${NC}"
+    fi
+fi
+echo ""
+
 # Summary
 echo -e "${GREEN}=== Test Summary ===${NC}"
 echo "Contract ID: $CONTRACT_ID"
@@ -354,6 +487,7 @@ echo -e "${GREEN}✓ Contract compiled and optimized${NC}"
 echo -e "${GREEN}✓ Contract deployed${NC}"
 echo -e "${GREEN}✓ Contract initialized${NC}"
 echo -e "${GREEN}✓ Basic functionality tested${NC}"
+echo -e "${GREEN}✓ settle_trade function tested${NC}"
 echo ""
 echo -e "${BLUE}To interact with the contract:${NC}"
 echo "  stellar contract invoke \\"

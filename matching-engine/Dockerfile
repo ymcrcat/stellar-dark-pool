@@ -1,7 +1,7 @@
 # Multi-stage build for Stellar Dark Pool Matching Engine
 
 # Stage 1: Build dependencies
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 

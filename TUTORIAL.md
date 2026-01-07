@@ -81,7 +81,6 @@ export MATCHING_ENGINE_SECRET=$(stellar keys show matching-engine)
 cat > .env << EOF
 STELLAR_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
 SOROBAN_RPC_URL="https://soroban-testnet.stellar.org"
-HORIZON_URL="https://horizon-testnet.stellar.org"
 SETTLEMENT_CONTRACT_ID="$SETTLEMENT_CONTRACT_ID"
 MATCHING_ENGINE_SIGNING_KEY="$MATCHING_ENGINE_SECRET"
 REST_PORT=8080

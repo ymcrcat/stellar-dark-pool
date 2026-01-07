@@ -8,10 +8,6 @@ class Settings(BaseSettings):
         default="Test SDF Network ; September 2015",
         validation_alias="STELLAR_NETWORK_PASSPHRASE"
     )
-    horizon_url: str = Field(
-        default="https://horizon-testnet.stellar.org",
-        validation_alias="HORIZON_URL"
-    )
     soroban_rpc_url: str = Field(
         default="https://soroban-testnet.stellar.org",
         validation_alias="SOROBAN_RPC_URL"

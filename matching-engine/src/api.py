@@ -1,9 +1,12 @@
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 import time
 import uuid
 import logging
+import os
+import hashlib
+import subprocess
 from decimal import Decimal
 
 from .types import (
@@ -162,6 +165,130 @@ async def get_balances(user_address: str, token: str):
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "timestamp": int(time.time())}
+
+def _get_tls_spki_hash(cert_path: str) -> str:
+    if not cert_path or not os.path.exists(cert_path):
+        raise ValueError("TLS certificate not found")
+    pubkey_pem = subprocess.check_output(
+        ["openssl", "x509", "-in", cert_path, "-pubkey", "-noout"]
+    )
+    spki_der = subprocess.check_output(
+        ["openssl", "pkey", "-pubin", "-outform", "DER"],
+        input=pubkey_pem
+    )
+    return hashlib.sha256(spki_der).hexdigest()
+
+def _get_stellar_pubkey() -> str:
+    if not settings.matching_engine_signing_key:
+        raise ValueError("MATCHING_ENGINE_SIGNING_KEY not configured")
+    from stellar_sdk import Keypair
+    return Keypair.from_secret(settings.matching_engine_signing_key).public_key
+
+def _jsonify_value(value):
+    if isinstance(value, (bytes, bytearray)):
+        return "0x" + bytes(value).hex()
+    if isinstance(value, dict):
+        return {k: _jsonify_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_jsonify_value(v) for v in value]
+    return value
+
+def _quote_to_dict(quote_obj):
+    if isinstance(quote_obj, dict):
+        return quote_obj
+    if hasattr(quote_obj, "model_dump"):
+        return quote_obj.model_dump()
+    if hasattr(quote_obj, "to_dict"):
+        return quote_obj.to_dict()
+
+    result = {}
+    for attr in ("quote", "event_log", "vm_config", "report_data"):
+        if hasattr(quote_obj, attr):
+            result[attr] = getattr(quote_obj, attr)
+    if result:
+        return result
+    if hasattr(quote_obj, "__dict__"):
+        return quote_obj.__dict__
+    return {"value": str(quote_obj)}
+
+async def _build_attestation_response(challenge: Optional[str]) -> dict:
+    if not os.path.exists("/var/run/dstack.sock"):
+        raise HTTPException(
+            status_code=503,
+            detail="TEE attestation not available (dstack socket not found)."
+        )
+
+    try:
+        from dstack_sdk import DstackClient
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"dstack-sdk unavailable: {e}")
+
+    try:
+        tls_cert_path = os.getenv("TLS_CERT_PATH", "")
+        tls_spki_hash = _get_tls_spki_hash(tls_cert_path)
+        stellar_pubkey = _get_stellar_pubkey()
+        domain_name = os.getenv("DOMAIN_NAME", "")
+        timestamp = int(time.time())
+
+        challenge_hex = ""
+        if challenge:
+            try:
+                challenge_bytes = bytes.fromhex(challenge)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid hex challenge")
+            if len(challenge_bytes) > 64:
+                raise HTTPException(status_code=400, detail="Challenge too long (max 64 bytes)")
+            challenge_hex = challenge.lower()
+
+        preimage = f"{stellar_pubkey}|{tls_spki_hash}|{domain_name}|{timestamp}|{challenge_hex}"
+        report_data = hashlib.sha256(preimage.encode()).digest()
+
+        client = DstackClient()
+        quote = client.get_quote(report_data)
+        quote_payload = _jsonify_value(_quote_to_dict(quote))
+
+        # Ensure required fields are present for verifiers
+        quote_payload.setdefault("report_data", "0x" + report_data.hex())
+
+        return {
+            **quote_payload,
+            "identity": {
+                "stellar_pubkey": stellar_pubkey,
+                "tls_spki_hash": tls_spki_hash,
+                "domain": domain_name,
+                "timestamp": timestamp,
+                "challenge": challenge_hex or None,
+                "report_data_preimage": preimage,
+                "report_data_hash": report_data.hex(),
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/attestation")
+async def get_attestation_alias(challenge: Optional[str] = Query(default=None, max_length=128)):
+    return await _build_attestation_response(challenge)
+
+@app.get("/info")
+async def get_info():
+    if not os.path.exists("/var/run/dstack.sock"):
+        raise HTTPException(
+            status_code=503,
+            detail="TEE info not available (dstack socket not found)."
+        )
+    try:
+        from dstack_sdk import DstackClient
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"dstack-sdk unavailable: {e}")
+
+    try:
+        client = DstackClient()
+        info = client.info()
+        return _jsonify_value(_quote_to_dict(info))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/admin/clear_cache")
 async def clear_balance_cache(eng: MatchingEngine = Depends(get_engine)):

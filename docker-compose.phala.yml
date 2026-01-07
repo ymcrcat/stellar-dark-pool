@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   matching-engine:
     image: ymcrcat/stellar-darkpool-matching-engine:latest

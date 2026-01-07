@@ -34,6 +34,27 @@ echo "       --source admin --network testnet -- \\"
 echo "       set_matching_engine --matching_engine $MATCHING_ENGINE_PUBLIC"
 echo ""
 
+if [ -z "${TLS_CERT_PATH:-}" ] || [ -z "${TLS_KEY_PATH:-}" ]; then
+    echo "Generating self-signed TLS certificate (TLS passthrough mode)..."
+    mkdir -p /tmp/tls
+    openssl req -x509 -newkey rsa:2048 -nodes \
+        -keyout /tmp/tls/key.pem \
+        -out /tmp/tls/cert.pem \
+        -days 365 \
+        -subj "/CN=${MATCHING_ENGINE_PUBLIC}" >/dev/null 2>&1
+    export TLS_CERT_PATH="/tmp/tls/cert.pem"
+    export TLS_KEY_PATH="/tmp/tls/key.pem"
+fi
+
+if [ -f "${TLS_CERT_PATH:-}" ] && [ -f "${TLS_KEY_PATH:-}" ]; then
+    echo "TLS enabled with certificate:"
+    echo "  TLS_CERT_PATH: ${TLS_CERT_PATH}"
+    echo "  TLS_KEY_PATH:  ${TLS_KEY_PATH}"
+else
+    echo "TLS not enabled (certificate files not found)."
+fi
+echo ""
+
 echo "========================================="
 echo "Starting matching engine..."
 echo "========================================="

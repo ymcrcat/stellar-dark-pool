@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   matching-engine:
-    image: ymcrcat/stellar-dark-pool-matching-engine:latest
+    image: ymcrcat/stellar-darkpool-matching-engine:latest
     ports:
       - "80:80"
       - "443:443"

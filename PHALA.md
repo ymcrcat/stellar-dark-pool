@@ -786,6 +786,26 @@ Retrieve application configuration and metadata.
 }
 ```
 
+---
+
+## TLS Passthrough vs Gateway TLS
+
+Phala exposes public endpoints through the dstack gateway. By default, the gateway terminates TLS and forwards traffic to your CVM over an internal tunnel. This provides standard HTTPS for users, but the TLS session is **not** inside your TEE.
+
+If you need TLS termination **inside the TEE** (so you can attest the TLS keypair), use **TLS passthrough**:
+
+- URL format: `https://<app-id>-<port>s.dstack-*.phala.network`
+- The trailing `s` after the port enables passthrough; the gateway forwards encrypted TLS to your app.
+- Your app must run its own TLS stack and present a certificate.
+
+Example:
+- Gateway TLS (default): `https://<app-id>-443.dstack-pha-prod9.phala.network`
+- TLS passthrough: `https://<app-id>-443s.dstack-pha-prod9.phala.network`
+
+Notes:
+- Passthrough is required if you want to bind the TLS public key (SPKI hash) into the attestation quote.
+- When using passthrough, health checks inside the container should use `https://localhost:<port>` and allow self-signed certs if you generate them at boot.
+
 **Fields:**
 - `tcb_info.app_compose`: JSON string of docker-compose config
 - `tcb_info.vm_config`: VM configuration

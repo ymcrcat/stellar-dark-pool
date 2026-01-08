@@ -26,7 +26,7 @@ services:
       REST_PORT: ${REST_PORT:-8080}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request, os; port = os.getenv('REST_PORT', '8080'); urllib.request.urlopen(f'http://localhost:{port}/health').read()"]
+      test: ["CMD", "python", "-c", "import os, ssl, urllib.request; port = os.getenv('REST_PORT', '8080'); url = f'https://localhost:{port}/health'; ctx = ssl._create_unverified_context(); urllib.request.urlopen(url, context=ctx).read()"]
       interval: 30s
       timeout: 3s
       retries: 3

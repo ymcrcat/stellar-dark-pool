@@ -30,7 +30,8 @@ NC='\033[0m'
 export STELLAR_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
 export SOROBAN_RPC_URL="https://soroban-testnet.stellar.org"
 REST_PORT=${REST_PORT:-8080}
-BASE_URL="http://localhost:${REST_PORT}"
+BASE_URL="${BASE_URL:-}"
+CURL_OPTS="${CURL_OPTS:-}"
 ROOT_DIR="$(pwd)"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 
@@ -67,6 +68,25 @@ print_error() {
 
 print_info() {
     echo -e "${YELLOW}ℹ $1${NC}"
+}
+
+# Determine whether the matching engine is serving HTTPS or HTTP.
+configure_base_url() {
+    if [ -n "$BASE_URL" ]; then
+        if [[ "$BASE_URL" == https://* ]] && [ -z "$CURL_OPTS" ]; then
+            CURL_OPTS="-k"
+        fi
+        return
+    fi
+
+    local host="localhost:${REST_PORT}"
+    if curl -s -k -f "https://${host}/health" > /dev/null 2>&1; then
+        BASE_URL="https://${host}"
+        CURL_OPTS="-k"
+    else
+        BASE_URL="http://${host}"
+        CURL_OPTS=""
+    fi
 }
 
 # Check prerequisites
@@ -213,6 +233,10 @@ SOROBAN_RPC_URL=${SOROBAN_RPC_URL}
 SETTLEMENT_CONTRACT_ID=${CONTRACT_ID}
 REST_PORT=${REST_PORT}
 EOF
+
+    # Ensure compose interpolation uses the freshly deployed contract
+    export SETTLEMENT_CONTRACT_ID="${CONTRACT_ID}"
+    export REST_PORT="${REST_PORT}"
     
     print_success "Docker environment file created"
 }
@@ -227,6 +251,25 @@ start_matching_engine() {
     # Wait for container to be healthy
     print_info "Waiting for container to start..."
     sleep 5
+
+    configure_base_url
+    print_info "Using matching engine URL: ${BASE_URL}"
+
+    # Verify the container picked up the correct settlement contract ID
+    local logged_contract_id
+    logged_contract_id=$(docker-compose logs matching-engine 2>/dev/null | grep "Settlement Contract ID:" | tail -1 | awk '{print $NF}')
+    if [ -z "$logged_contract_id" ] || [ "$logged_contract_id" = "[NOT" ] || [ "$logged_contract_id" = "SET]" ]; then
+        print_error "Matching engine did not receive SETTLEMENT_CONTRACT_ID"
+        docker-compose logs matching-engine 2>&1 | head -50
+        exit 1
+    fi
+    if [ -n "${CONTRACT_ID:-}" ] && [ "$logged_contract_id" != "$CONTRACT_ID" ]; then
+        print_error "Matching engine is using a different settlement contract"
+        print_error "Expected: $CONTRACT_ID"
+        print_error "Got:      $logged_contract_id"
+        docker-compose logs matching-engine 2>&1 | head -50
+        exit 1
+    fi
     
     # Extract public key from logs
     print_info "Extracting auto-generated public key from container logs..."
@@ -250,7 +293,7 @@ start_matching_engine() {
     # Wait for health endpoint
     print_info "Waiting for matching engine to be ready..."
     for i in {1..30}; do
-        curl -s -f "${BASE_URL}/health" > /dev/null 2>&1 && {
+        curl $CURL_OPTS -s -f "${BASE_URL}/health" > /dev/null 2>&1 && {
             print_success "Matching engine is ready"
             return
         }
@@ -345,11 +388,33 @@ deposit_funds() {
     
     # Clear matching engine's balance cache to force fresh queries
     print_info "Clearing matching engine balance cache..."
-    curl -s -X POST "${BASE_URL}/api/v1/admin/clear_cache" | jq -r '.message'
+    curl $CURL_OPTS -s -X POST "${BASE_URL}/api/v1/admin/clear_cache" | jq -r '.message'
     
     # Additional wait for RPC consistency across all nodes
     print_info "Waiting for RPC consistency..."
     sleep 10
+
+    # Ensure matching engine can see vault balances before submitting orders
+    print_info "Checking matching engine vault balances..."
+    local expected_balance="1000000000"
+    for i in {1..30}; do
+        local user1_balance=$(curl $CURL_OPTS -s "${BASE_URL}/api/v1/balances?user_address=${USER1_PUBLIC}&token=XLM" | jq -r '.balance_raw // 0')
+        local user2_balance=$(curl $CURL_OPTS -s "${BASE_URL}/api/v1/balances?user_address=${USER2_PUBLIC}&token=XLM" | jq -r '.balance_raw // 0')
+
+        if [ "$user1_balance" = "$expected_balance" ] && [ "$user2_balance" = "$expected_balance" ]; then
+            print_success "Matching engine sees vault balances (user1/user2: $expected_balance)"
+            return
+        fi
+
+        if [ $((i % 5)) -eq 0 ]; then
+            print_info "Waiting for matching engine balance sync... (attempt $i/30, user1: $user1_balance, user2: $user2_balance)"
+        fi
+        sleep 2
+    done
+
+    print_error "Matching engine did not observe deposited balances after 60 seconds."
+    docker-compose logs matching-engine 2>&1 | tail -50
+    exit 1
 }
 
 # Step 9: Submit orders (settlement happens automatically)
@@ -366,7 +431,7 @@ submit_orders() {
     local buy_req="${buy_json%\}},\"signature\":\"$BUY_SIG\"}"
 
     print_info "Submitting buy order..."
-    local buy_resp=$(curl -s -X POST -H "Content-Type: application/json" -d "$buy_req" "${BASE_URL}/api/v1/orders")
+    local buy_resp=$(curl $CURL_OPTS -s -X POST -H "Content-Type: application/json" -d "$buy_req" "${BASE_URL}/api/v1/orders")
     echo "$buy_resp" | jq .
     
     # Check if buy order submission failed
@@ -382,7 +447,7 @@ submit_orders() {
     local sell_req="${sell_json%\}},\"signature\":\"$SELL_SIG\"}"
 
     print_info "Submitting sell order (will match and auto-settle)..."
-    local sell_resp=$(curl -s -X POST -H "Content-Type: application/json" -d "$sell_req" "${BASE_URL}/api/v1/orders")
+    local sell_resp=$(curl $CURL_OPTS -s -X POST -H "Content-Type: application/json" -d "$sell_req" "${BASE_URL}/api/v1/orders")
     echo "$sell_resp" | jq .
 
     # Check if order submission failed
@@ -400,7 +465,7 @@ submit_orders() {
     if [ -z "$TRADE_ID" ] || [ "$TRADE_ID" = "null" ]; then
         print_error "Orders did not match! No trade ID returned."
         print_error "Buy order response:"
-        curl -s "${BASE_URL}/api/v1/orders/order-1?asset_pair=XLM/XLM" | jq .
+        curl $CURL_OPTS -s "${BASE_URL}/api/v1/orders/order-1?asset_pair=XLM/XLM" | jq .
         print_error ""
         print_error "Checking matching engine logs..."
         docker-compose logs matching-engine 2>&1 | tail -30

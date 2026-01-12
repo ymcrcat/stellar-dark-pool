@@ -9,8 +9,6 @@ services:
       STELLAR_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
       SOROBAN_RPC_URL: "https://soroban-testnet.stellar.org"
       SETTLEMENT_CONTRACT_ID: "${SETTLEMENT_CONTRACT_ID}"
-      DOMAIN_NAME: "stellardark.io"
-      LETSENCRYPT_EMAIL: "admin@stellardark.io"
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
     restart: unless-stopped

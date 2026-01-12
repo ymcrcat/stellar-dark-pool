@@ -1,3 +1,5 @@
+# This docker-compose file is used for local testing of the matching engine.
+# For Confidential VM deployment on the Phala Cloud use docker-compose.phala.yml.
 services:
   matching-engine:
     build:

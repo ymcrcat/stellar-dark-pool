@@ -65,13 +65,11 @@ Return the preimage fields in the API response so verifiers can recompute the ha
 ## Attestation API Design
 
 Endpoints:
-- GET /api/v1/attestation
+- GET /attestation
   - Returns quote, event log, vm config, reportData, and identity metadata.
   - Supports optional challenge for freshness (hex, <= 64 bytes).
-- GET /api/v1/info
+- GET /info
   - Returns TCB info, compose configuration, and metadata.
-- Optional GET /api/v1/tls/certificate
-  - Returns certificate PEM for client-side SPKI extraction.
 
 Response metadata should include:
 - tls_spki_hash (TLS public key SPKI hash)
@@ -82,7 +80,7 @@ Response metadata should include:
 ## Verification Flow (Client)
 
 1. Connect via HTTPS (CA trust is convenience only).
-2. Fetch /api/v1/attestation.
+2. Fetch /attestation.
 3. Verify Intel TDX quote signature (Phala verification API or local verifier).
 4. Verify compose-hash against the reported configuration.
 5. Verify reportData recomputation matches the quote.
@@ -193,7 +191,7 @@ When the Docker container starts, the following must happen in order:
 6. **Bind identities to attestation** - Combine Stellar public key + TLS public key SPKI hash into reportData
 7. **Initialize attestation service** - Generate initial quote with key bindings
 8. **Start HTTPS server** - Uvicorn with ssl_certfile/ssl_keyfile
-9. **Expose attestation endpoints** - `/api/v1/attestation` and `/api/v1/info`
+9. **Expose attestation endpoints** - `/attestation` and `/info`
 
 **Critical requirements**:
 - All key generation (Stellar keypair + TLS keypair) must happen inside the container
@@ -218,22 +216,23 @@ Not provided:
 - Privacy of order data inside the enclave memory.
 - Censorship resistance or liveness guarantees.
 
-## Phased Implementation (No Code)
+## Phased Implementation
 
-Phase 1: Core attestation
+Phase 1: Core attestation ✅ **COMPLETED**
 - Add attestation service with quote generation, caching, and info endpoints.
 - Bind Stellar public key to reportData.
 
-Phase 2: TLS key binding
+Phase 2: TLS key binding ✅ **COMPLETED**
 - Generate TLS keypair inside TEE.
-- Issue certificate via ACME using the in-TEE TLS private key.
 - Bind TLS public key SPKI hash into reportData and expose it in attestation responses.
 
-Phase 3: Verification tooling
+Phase 3: Verification tooling ✅ **COMPLETED**
 - Provide scripts and docs for attestation verification and TLS public key SPKI pinning.
 
-Phase 4: Docs and ops
+Phase 4: Docs and ops ✅ **COMPLETED**
 - Update architecture docs, deployment guides, and local dev guidance.
+
+**Note**: ACME/Let's Encrypt certificate issuance is not yet implemented. Currently using self-signed certificates for TLS passthrough mode.
 
 ## Open Decisions
 

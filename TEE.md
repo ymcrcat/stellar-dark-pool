@@ -90,12 +90,96 @@ Response metadata should include:
 
 Only after steps 2-6 should the client treat the connection as trusted.
 
+## Verification Scripts
+
+Two scripts are provided in `scripts/` to verify attestation:
+
+### 1. Remote Verification (Recommended)
+
+```bash
+python3 scripts/verify_remote_attestation.py <base_url>
+```
+
+Fetches `/info` and `/attestation` from a live deployment and verifies the compose-hash matches.
+
+**Example**:
+```bash
+# Verify production deployment
+python3 scripts/verify_remote_attestation.py https://c5d5291eef49362eaadcac3d3bf62eb5f3452860-443s.dstack-pha-prod9.phala.network
+```
+
+**What it verifies**:
+- Computes SHA256 hash of app-compose from `/info` endpoint
+- Extracts attested compose-hash from event log in `/attestation` endpoint
+- Confirms they match (proves configuration integrity)
+
+**Exit codes**: 0 = success, 1 = failure (suitable for CI/CD)
+
+### 2. Local Hash Computation
+
+```bash
+python3 scripts/compute_compose_hash.py [app-compose.json] [attestation.json]
+```
+
+Computes compose-hash from a local app-compose.json file.
+
+**Examples**:
+```bash
+# Compute hash only
+python3 scripts/compute_compose_hash.py app-compose.json
+
+# Compute and verify against saved attestation
+python3 scripts/compute_compose_hash.py app-compose.json attestation.json
+```
+
+**Use cases**:
+- Pre-deployment verification
+- Audit trail comparison
+- Debug hash mismatches
+
+### Compose Hash Algorithm
+
+The compose-hash is computed as:
+1. Remove all `null`/`None` values from app-compose
+2. Recursively sort all dictionary keys lexicographically
+3. Create deterministic JSON: `json.dumps(sorted_obj, separators=(",", ":"))`
+4. Return SHA256 hex digest
+
+This deterministic hash is recorded in RTMR3 and signed by Intel TDX hardware.
+
+### 3. Intel TDX Quote Verification
+
+The scripts above verify compose-hash integrity but don't verify Intel's cryptographic signature. To verify the quote was signed by genuine Intel TDX hardware:
+
+```bash
+# Install dcap-qvl-cli (one-time setup)
+cargo install dcap-qvl-cli
+
+# Fetch attestation quote
+curl -k https://your-deployment/attestation | jq -r '.quote' > quote.hex
+
+# Convert hex to binary
+xxd -r -p quote.hex > quote.bin
+
+# Verify Intel TDX signature
+dcap-qvl verify quote.bin
+```
+
+The `dcap-qvl` verifier checks:
+- Intel's cryptographic signature on the quote
+- Certificate chain back to Intel's root CA
+- TCB (Trusted Computing Base) status
+- Measurement registers (MRTD, RTMR0-3, reportData)
+
+This provides local verification without relying on third-party APIs.
+
 ## Operational Considerations
 
 - Attestation is only available inside Phala Cloud; local dev should return 503 with a clear message.
 - Quote generation should be cached (short TTL) to reduce overhead.
 - TLS keys are ephemeral per deployment; clients should re-verify after restart.
 - Use immutable image digests in deployment for reproducible measurements.
+- **Important**: Environment variables like `${SETTLEMENT_CONTRACT_ID}` are resolved at deployment time and baked into the attested compose-hash.
 
 ## Container Startup Sequence
 

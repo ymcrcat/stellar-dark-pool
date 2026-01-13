@@ -90,7 +90,7 @@ Only after steps 2-6 should the client treat the connection as trusted.
 
 ## Verification Scripts
 
-Two scripts are provided in `scripts/` to verify attestation:
+Three scripts are provided in `scripts/` for attestation verification and demo:
 
 ### 1. Remote Verification (Recommended)
 
@@ -159,6 +159,37 @@ python3 scripts/compute_compose_hash.py app-compose.json attestation.json
 - Audit trail comparison
 - Debug hash mismatches
 
+### 3. Remote TEE Demo
+
+```bash
+./scripts/demo_remote_tee.sh <tee_base_url> [--contract-id CONTRACT_ID] [--skip-attestation]
+```
+
+Complete end-to-end demonstration with a remote TEE-deployed matching engine.
+
+**Examples**:
+```bash
+# Full demo with attestation verification
+./scripts/demo_remote_tee.sh https://your-tee-deployment.phala.network --contract-id YOUR_CONTRACT_ID
+
+# Skip attestation verification (for testing)
+./scripts/demo_remote_tee.sh https://your-tee-deployment.phala.network --contract-id YOUR_CONTRACT_ID --skip-attestation
+```
+
+**What it does**:
+1. Verifies TEE attestation (compose-hash, TLS SPKI, report_data)
+2. Extracts matching engine public key from attestation
+3. Creates test accounts and deposits funds to contract vault
+4. Submits matching buy/sell orders with SEP-0053 signatures
+5. Verifies on-chain settlement and balance changes
+
+**Requirements**:
+- Contract must be deployed and matching engine registered
+- Provide contract ID via `--contract-id` argument
+- Matching engine must be accessible via HTTPS
+
+**Note**: This script assumes the contract is already deployed. Deploy the contract first, then deploy the matching engine configured with that contract ID.
+
 ### Compose Hash Algorithm
 
 The compose-hash is computed as:
@@ -169,7 +200,7 @@ The compose-hash is computed as:
 
 This deterministic hash is recorded in RTMR3 and signed by Intel TDX hardware.
 
-### 3. Intel TDX Quote Verification
+### 4. Intel TDX Quote Verification
 
 The scripts above verify compose-hash integrity but don't verify Intel's cryptographic signature. To verify the quote was signed by genuine Intel TDX hardware:
 

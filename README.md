@@ -21,7 +21,7 @@ The Stellar Dark Pool is a prototype for privacy-preserving trading on Stellar. 
 
 - **contracts/settlement**: Soroban smart contract for trade settlement and vault management
 - **matching-engine**: Python-based off-chain matching engine with REST API
-- **scripts**: Utility scripts for order signing and testing
+- **scripts**: Utility scripts for order signing, testing, and TEE verification
 
 ## Quick Start
 
@@ -142,6 +142,35 @@ Two E2E test scripts are available:
 - Runs matching engine as local Python process
 - Requires Python venv setup
 - Uses Stellar CLI key aliases
+
+### Remote TEE Demo
+
+Demonstrate the full flow with a remote TEE-deployed matching engine:
+
+```bash
+./scripts/demo_remote_tee.sh <tee_base_url> [--contract-id CONTRACT_ID] [--skip-attestation]
+```
+
+**Examples**:
+```bash
+# Full demo with attestation verification
+./scripts/demo_remote_tee.sh https://your-tee-deployment.phala.network --contract-id YOUR_CONTRACT_ID
+
+# Skip attestation verification (for testing)
+./scripts/demo_remote_tee.sh https://your-tee-deployment.phala.network --contract-id YOUR_CONTRACT_ID --skip-attestation
+```
+
+**What it does**:
+1. Verifies TEE attestation (compose-hash, TLS SPKI, report_data)
+2. Extracts matching engine identity from attestation
+3. Creates test accounts and deposits funds to contract vault
+4. Submits matching buy/sell orders
+5. Verifies on-chain settlement
+
+**Requirements**:
+- Contract must be deployed and matching engine registered (see [TEE.md](TEE.md))
+- Provide contract ID via `--contract-id` argument
+- Matching engine must be accessible via HTTPS
 
 ### Unit Tests
 

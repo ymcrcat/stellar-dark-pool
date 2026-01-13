@@ -6,7 +6,6 @@ A Python implementation of the matching engine for the Stellar Dark Pool, rewrit
 
 - **Order Matching**: Supports Limit and Market orders with time-in-force policies (GTC, IOC, FOK).
 - **Soroban Integration**: Directly interacts with the Settlement Contract on Soroban for vault balance checks and settlement submission.
-- **No Horizon Dependency**: Uses Soroban RPC for all blockchain interactions.
 - **SEP-0053 Support**: Implements Stellar Signed Messages for secure order authentication.
 
 ## Docker Deployment (Recommended)

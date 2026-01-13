@@ -1,6 +1,6 @@
 # Stellar Dark Pool
 
-A decentralized dark pool on Stellar, featuring privacy-preserving order matching and on-chain settlement.
+A prototype of a dark pool on Stellar, featuring privacy-preserving order matching and on-chain settlement.
 
 ## Overview
 
@@ -12,10 +12,8 @@ The Stellar Dark Pool is a prototype for privacy-preserving trading on Stellar. 
 - **Automatic Settlement**: Trades settle on-chain immediately after matching
 - **Vault Model**: Users deposit assets into the contract; trades settle against vault balances
 - **Order Integrity**: SEP-0053 signatures ensure orders cannot be forged
-- **TEE Secured**: Matching engine runs in Trusted Execution Environment (see TEE.md)
-- **Instant Settlement**: Pre-locked funds enable guaranteed settlement
+- **TEE Secured**: Matching engine runs in Trusted Execution Environment (see [TEE.md](TEE.md))
 - **Price-Time Priority**: Fair matching with FIFO ordering at each price level
-- **Soroban-native**: Uses only Soroban RPC (no Horizon dependency)
 
 ## Project Structure
 
@@ -124,8 +122,6 @@ See [matching-engine/README.md](matching-engine/README.md) for detailed API docu
 
 ### End-to-End Tests
 
-Two E2E test scripts are available:
-
 **Docker-based (Recommended)**:
 ```bash
 ./test_e2e_docker.sh
@@ -133,7 +129,6 @@ Two E2E test scripts are available:
 - Uses Docker container for matching engine
 - No Python environment setup required
 - Automatic keypair generation
-- Matches production deployment pattern
 
 **Python-based**:
 ```bash
@@ -141,36 +136,16 @@ Two E2E test scripts are available:
 ```
 - Runs matching engine as local Python process
 - Requires Python venv setup
-- Uses Stellar CLI key aliases
 
 ### Remote TEE Demo
 
 Demonstrate the full flow with a remote TEE-deployed matching engine:
 
 ```bash
-./scripts/demo_remote_tee.sh <tee_base_url> [--contract-id CONTRACT_ID] [--skip-attestation]
+./scripts/demo_remote_tee.sh <tee_base_url> --contract-id CONTRACT_ID
 ```
 
-**Examples**:
-```bash
-# Full demo with attestation verification
-./scripts/demo_remote_tee.sh https://your-tee-deployment.phala.network --contract-id YOUR_CONTRACT_ID
-
-# Skip attestation verification (for testing)
-./scripts/demo_remote_tee.sh https://your-tee-deployment.phala.network --contract-id YOUR_CONTRACT_ID --skip-attestation
-```
-
-**What it does**:
-1. Verifies TEE attestation (compose-hash, TLS SPKI, report_data)
-2. Extracts matching engine identity from attestation
-3. Creates test accounts and deposits funds to contract vault
-4. Submits matching buy/sell orders
-5. Verifies on-chain settlement
-
-**Requirements**:
-- Contract must be deployed and matching engine registered (see [TEE.md](TEE.md))
-- Provide contract ID via `--contract-id` argument
-- Matching engine must be accessible via HTTPS
+This script verifies TEE attestation, creates test accounts, submits matching orders, and verifies on-chain settlement. See [TEE.md](TEE.md) for detailed information about TEE deployment and verification.
 
 ### Unit Tests
 
@@ -196,7 +171,7 @@ cd matching-engine && source venv/bin/activate && pytest
 ## Documentation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System design and architecture
-- [TEE.md](TEE.md) - Trusted Execution Environment implementation plan
+- [TEE.md](TEE.md) - Trusted Execution Environment implementation
 - [TUTORIAL.md](TUTORIAL.md) - Complete step-by-step walkthrough
 - [TODO.md](TODO.md) - Planned features and production checklist
 - [RESEARCH.md](RESEARCH.md) - Research on hybrid DEX approaches

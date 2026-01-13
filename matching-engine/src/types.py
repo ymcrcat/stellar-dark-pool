@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Optional, List
 from decimal import Decimal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class OrderSide(str, Enum):
     Buy = "Buy"
@@ -25,11 +25,10 @@ class OrderStatus(str, Enum):
     Rejected = "Rejected"
 
 class AssetPair(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     base: str
     quote: str
-
-    class Config:
-        frozen = True  # Make it hashable
 
 class Order(BaseModel):
     order_id: str

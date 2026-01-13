@@ -180,3 +180,27 @@ def test_get_balances(client, mock_engine, mock_stellar):
     assert "balance" in data
     assert "user_address" in data
     assert data["user_address"] == keypair.public_key
+
+
+def test_attestation_no_tee(client):
+    """Test attestation endpoint when TEE is not available (normal local case)."""
+    response = client.get("/attestation")
+    
+    assert response.status_code == 503
+    assert "TEE attestation not available" in response.json()["detail"]
+
+
+def test_attestation_with_challenge_no_tee(client):
+    """Test attestation endpoint with challenge when TEE is not available."""
+    response = client.get("/attestation?challenge=deadbeef")
+    
+    assert response.status_code == 503
+    assert "TEE attestation not available" in response.json()["detail"]
+
+
+def test_info_no_tee(client):
+    """Test info endpoint when TEE is not available."""
+    response = client.get("/info")
+    
+    assert response.status_code == 503
+    assert "TEE info not available" in response.json()["detail"]

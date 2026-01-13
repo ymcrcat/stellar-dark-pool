@@ -178,6 +178,12 @@ def _get_tls_spki_hash(cert_path: str) -> str:
     )
     return hashlib.sha256(spki_der).hexdigest()
 
+def _get_stellar_pubkey() -> str:
+    if not settings.matching_engine_signing_key:
+        raise ValueError("MATCHING_ENGINE_SIGNING_KEY not configured")
+    from stellar_sdk import Keypair
+    return Keypair.from_secret(settings.matching_engine_signing_key).public_key
+
 def _jsonify_value(value):
     if isinstance(value, (bytes, bytearray)):
         return "0x" + bytes(value).hex()
@@ -220,6 +226,7 @@ async def _build_attestation_response(challenge: Optional[str]) -> dict:
     try:
         tls_cert_path = os.getenv("TLS_CERT_PATH", "")
         tls_spki_hash = _get_tls_spki_hash(tls_cert_path)
+        stellar_pubkey = _get_stellar_pubkey()
         timestamp = int(time.time())
 
         challenge_hex = ""
@@ -232,7 +239,7 @@ async def _build_attestation_response(challenge: Optional[str]) -> dict:
                 raise HTTPException(status_code=400, detail="Challenge too long (max 64 bytes)")
             challenge_hex = challenge.lower()
 
-        preimage = f"{tls_spki_hash}|{timestamp}|{challenge_hex}"
+        preimage = f"{stellar_pubkey}|{tls_spki_hash}|{timestamp}|{challenge_hex}"
         report_data = hashlib.sha256(preimage.encode()).digest()
 
         client = DstackClient()
@@ -245,6 +252,7 @@ async def _build_attestation_response(challenge: Optional[str]) -> dict:
         return {
             **quote_payload,
             "identity": {
+                "stellar_pubkey": stellar_pubkey,
                 "tls_spki_hash": tls_spki_hash,
                 "timestamp": timestamp,
                 "challenge": challenge_hex or None,

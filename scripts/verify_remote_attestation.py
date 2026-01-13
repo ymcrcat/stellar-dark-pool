@@ -395,13 +395,14 @@ def verify_remote_attestation(base_url: str, verbose: bool = True, cert_output_p
     report_data_verified = False
 
     # Extract components from identity
+    stellar_pubkey = identity.get('stellar_pubkey', '')
     tls_spki_hash = identity.get('tls_spki_hash', '')
     timestamp = identity.get('timestamp')
     response_challenge = identity.get('challenge') or ''
 
-    if not tls_spki_hash or timestamp is None:
+    if not stellar_pubkey or not tls_spki_hash or timestamp is None:
         if verbose:
-            print("      ⚠ Missing required identity fields (tls_spki_hash or timestamp)")
+            print("      ⚠ Missing required identity fields (stellar_pubkey, tls_spki_hash, or timestamp)")
             print("      Cannot verify report_data hash")
             print()
     else:
@@ -422,8 +423,8 @@ def verify_remote_attestation(base_url: str, verbose: bool = True, cert_output_p
             if verbose:
                 print(f"      ✓ Challenge matches: {challenge_hex}")
 
-        # Reconstruct preimage: tls_spki_hash|timestamp|challenge
-        preimage = f"{tls_spki_hash}|{timestamp}|{response_challenge}"
+        # Reconstruct preimage: stellar_pubkey|tls_spki_hash|timestamp|challenge
+        preimage = f"{stellar_pubkey}|{tls_spki_hash}|{timestamp}|{response_challenge}"
         
         # Compute hash (32 bytes)
         computed_hash_bytes = hashlib.sha256(preimage.encode()).digest()

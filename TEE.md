@@ -8,7 +8,7 @@ Run the matching engine inside Phala Cloud TEE (Intel TDX) and expose standard H
 
 - Prove the matching engine is running the intended code in genuine Intel TDX hardware.
 - Prove the TLS keypair and Stellar keypair are generated inside the same TEE instance.
-- Provide normal HTTPS for users (ACME/Let's Encrypt for domain UX), with attestation as the security anchor.
+- Provide normal HTTPS for users (self-signed certificates), with attestation as the security anchor.
 - Support graceful degradation outside TEE (local development) without breaking core functionality.
 
 ## Trust Model
@@ -17,34 +17,27 @@ Run the matching engine inside Phala Cloud TEE (Intel TDX) and expose standard H
 - TEE attestation: cryptographic proof of code integrity and key ownership.
 - Combined: users get a clean HTTPS UX and a verifiable security proof that the TLS key is TEE-generated and matches the running code.
 
-## TLS Strategy (ACME in TEE)
+## TLS Strategy (Self-Signed Certificates)
 
 Key requirement: the TLS private key is generated inside the TEE and never leaves it.
 
 Design notes:
-- Use ACME (Let's Encrypt) inside the container to issue a certificate for the domain.
+- Generate self-signed TLS certificates inside the container using OpenSSL.
 - Do not mount or import keys/certs from the host; generate key material in-TEE.
 - Bind the TLS public key via SPKI hash into the attestation reportData.
 - Certificate fingerprint is informational only; trust is derived from the SPKI hash in the quote.
 
-Challenge options:
-- http-01: requires port 80.
-- tls-alpn-01: requires port 443 and ALPN support.
-
 ## Container Requirements
 
 Install inside the container:
-- ACME client (choose one): `certbot`, `lego`, or `acme.sh`.
-- OpenSSL (for SPKI extraction and hashing).
+- OpenSSL (for TLS keypair generation, certificate creation, and SPKI extraction).
 - dstack SDK runtime dependency (for quote generation).
-- CA root bundle (for outbound ACME calls).
 
 Network ports:
-- `80` if using http-01.
-- `443` for HTTPS and tls-alpn-01.
+- `443` for HTTPS.
 
 File system:
-- Writable path for ACME state and issued certs (inside the container).
+- Writable path for TLS keys and certificates (inside the container).
 - No host mounts for TLS keys or certs.
 
 ## Attestation Binding (Report Data)
@@ -238,8 +231,8 @@ When the Docker container starts, the following must happen in order:
 
 1. **Detect TEE availability** - Check for `/var/run/dstack.sock`
 2. **Generate ephemeral Stellar keypair** - Inside container, never imported from outside
-3. **Generate TLS keypair** - Inside container (via ACME client or OpenSSL)
-4. **Obtain certificate** - ACME/Let's Encrypt (if domain configured) or self-signed
+3. **Generate TLS keypair** - Inside container using OpenSSL
+4. **Create self-signed certificate** - Using OpenSSL with the generated keypair
 5. **Extract TLS public key SPKI hash** - SHA256 of TLS public key in SPKI DER format
 6. **Bind identities to attestation** - Combine Stellar public key + TLS public key SPKI hash into reportData
 7. **Initialize attestation service** - Generate initial quote with key bindings
@@ -249,12 +242,11 @@ When the Docker container starts, the following must happen in order:
 **Critical requirements**:
 - All key generation (Stellar keypair + TLS keypair) must happen inside the container
 - Never import keys from host filesystem or environment variables
-- Do not mount `/etc/letsencrypt` from outside the container
 - TLS public key SPKI hash must be extracted and bound to attestation quote
 - Use ephemeral keys (regenerated on every container restart)
 
 **Environment variables set**:
-- Public: `STELLAR_PUBKEY`, `TLS_SPKI_HASH`, `TLS_CERT_PATH`, `DOMAIN_NAME`
+- Public: `STELLAR_PUBKEY`, `TLS_SPKI_HASH`, `TLS_CERT_PATH`
 - Secret (in-memory only): `STELLAR_SIGNING_KEY`, `TLS_KEY_PATH`
 
 ## Security Properties
@@ -285,11 +277,7 @@ Phase 3: Verification tooling ✅ **COMPLETED**
 Phase 4: Docs and ops ✅ **COMPLETED**
 - Update architecture docs, deployment guides, and local dev guidance.
 
-**Note**: ACME/Let's Encrypt certificate issuance is not yet implemented. Currently using self-signed certificates for TLS passthrough mode.
-
 ## Open Decisions
 
-- ACME client choice (certbot, lego, acme.sh).
-- Challenge type (http-01 vs tls-alpn-01) and port exposure strategy.
 - Verification cadence for clients (per session vs periodic).
 - Rotation policy for TLS keypair and Stellar keypair.

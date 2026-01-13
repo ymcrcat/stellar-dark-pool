@@ -222,7 +222,12 @@ This provides local verification without relying on third-party APIs.
 - Attestation is only available inside Phala Cloud; local dev should return 503 with a clear message.
 - Quote generation should be cached (short TTL) to reduce overhead.
 - TLS keys are ephemeral per deployment; clients should re-verify after restart.
-- Use immutable image digests in deployment for reproducible measurements.
+- **Use immutable image digests (SHA256) in deployment for reproducible measurements and security.**
+  - **Do not use image tags** (e.g., `:latest`, `:v1.0.0`) as they enable an attacker to deploy their own container with the same tag, bypassing the security guarantees of attestation.
+  - **Always pin the image digest** using the format: `image@sha256:<digest>`
+  - Example: `ymcrcat/stellar-darkpool-matching-engine@sha256:0c6868fde4062a1da251bbd0d6c3ddca7bca28411f4853a73eea65a636d48e9e`
+  - **⚠️ Important**: The `docker-compose.phala.yml` file in the repository uses an image tag for convenience. **You must edit it before deployment** to replace the tag with a pinned SHA256 digest (e.g., change `image: ymcrcat/stellar-darkpool-matching-engine:latest` to `image: ymcrcat/stellar-darkpool-matching-engine@sha256:<digest>`).
+  - The compose-hash includes the image digest, so pinning to a specific hash ensures that only the exact image you've verified can be deployed.
 - **Important**: Environment variables like `${SETTLEMENT_CONTRACT_ID}` are resolved at deployment time and baked into the attested compose-hash.
 
 ## Container Startup Sequence

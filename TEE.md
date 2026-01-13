@@ -95,23 +95,47 @@ Two scripts are provided in `scripts/` to verify attestation:
 ### 1. Remote Verification (Recommended)
 
 ```bash
-python3 scripts/verify_remote_attestation.py <base_url>
+python3 scripts/verify_remote_attestation.py <base_url> [--save-cert PATH]
 ```
 
-Fetches `/info` and `/attestation` from a live deployment and verifies the compose-hash matches.
+Fetches `/info` and `/attestation` from a live deployment and verifies the compose-hash and TLS certificate match.
 
-**Example**:
+**Examples**:
 ```bash
-# Verify production deployment
+# Basic verification
 python3 scripts/verify_remote_attestation.py https://c5d5291eef49362eaadcac3d3bf62eb5f3452860-443s.dstack-pha-prod9.phala.network
+
+# Verify and save TLS certificate
+python3 scripts/verify_remote_attestation.py \
+  https://c5d5291eef49362eaadcac3d3bf62eb5f3452860-443s.dstack-pha-prod9.phala.network \
+  --save-cert server.crt
 ```
 
 **What it verifies**:
 - Computes SHA256 hash of app-compose from `/info` endpoint
 - Extracts attested compose-hash from event log in `/attestation` endpoint
-- Confirms they match (proves configuration integrity)
+- Confirms compose-hash matches (proves configuration integrity)
+- Extracts TLS certificate and verifies SPKI hash matches attestation (requires `cryptography` package)
+- Optionally saves TLS certificate in PEM format for subsequent use
 
 **Exit codes**: 0 = success, 1 = failure (suitable for CI/CD)
+
+**Using the Saved Certificate**:
+
+After saving the certificate, you can pin it for secure curl requests:
+
+```bash
+# Extract public key from certificate
+openssl x509 -in server.crt -pubkey -noout > server_pubkey.pem
+
+# Use with curl (pins the public key)
+curl --pinnedpubkey server_pubkey.pem https://your-deployment/api
+
+# Or trust the certificate as a CA (for self-signed certs)
+curl --cacert server.crt https://your-deployment/api
+```
+
+**Public key pinning** is recommended as it provides the strongest security guarantee - even if the certificate is reissued, the pinned public key from the TEE attestation must match.
 
 ### 2. Local Hash Computation
 
@@ -153,10 +177,8 @@ The scripts above verify compose-hash integrity but don't verify Intel's cryptog
 # Install dcap-qvl-cli (one-time setup)
 cargo install dcap-qvl-cli
 
-# Fetch attestation quote
+# Fetch attestation quote and convert to binary
 curl -k https://your-deployment/attestation | jq -r '.quote' > quote.hex
-
-# Convert hex to binary
 xxd -r -p quote.hex > quote.bin
 
 # Verify Intel TDX signature

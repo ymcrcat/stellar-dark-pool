@@ -178,6 +178,10 @@ cd matching-engine && source venv/bin/activate && pytest
 | "Insufficient vault balance" | Deposit funds before trading |
 | Connection refused on 8080 | Start matching engine: `python -m src.main` |
 | "401 Invalid signature" | Ensure orders use SEP-0053 signing format |
+| "Unsupported asset pair" | Check `ASSET_A_CONTRACT_ID` and `ASSET_B_CONTRACT_ID` in `.env` |
+| "Matching engine not set" | Run `set_matching_engine` on the contract with the engine's public key |
+| "Amount must be positive" | Ensure deposit/withdraw amounts are greater than 0 |
+| HTTP 402 response | Deposit more funds - vault balance is insufficient |
 
 ## Documentation
 

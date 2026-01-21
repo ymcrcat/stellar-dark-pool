@@ -4,7 +4,7 @@
 - `contracts/settlement/`: Soroban smart contract (Rust) for vaults and settlement. Key entry points in `contracts/settlement/src/`.
 - `matching-engine/`: Python matching engine with REST API. Source in `matching-engine/src/`, tests in `matching-engine/tests/`.
 - `scripts/`: Utilities including `sign_order.py` (SEP-0053 signing), `demo_remote_tee.sh`, `verify_remote_attestation.py`, `compute_compose_hash.py`.
-- Top-level docs: `docs/ARCHITECTURE.md`, `TUTORIAL.md`, `docs/RESEARCH.md`, `docs/TODO.md`, `docs/TEE.md`, `docs/PHALA.md`, `WARP.md`, `TEE_SPEC.md`.
+- Top-level docs: `docs/ARCHITECTURE.md`, `docs/TUTORIAL.md`, `docs/RESEARCH.md`, `docs/TODO.md`, `docs/TEE.md`, `docs/PHALA.md`, `WARP.md`, `TEE_SPEC.md`.
 
 ## Build, Test, and Development Commands
 - Contract build: `cd contracts/settlement && stellar contract build --profile release-with-logs --optimize` (produces optimized WASM in `target/wasm32v1-none/release-with-logs/settlement.wasm`).

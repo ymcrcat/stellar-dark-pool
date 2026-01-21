@@ -68,7 +68,7 @@ pip install -r requirements.txt
 python -m src.main
 ```
 
-For a complete step-by-step walkthrough, see **[TUTORIAL.md](TUTORIAL.md)**.
+For a complete step-by-step walkthrough, see **[TUTORIAL.md](docs/TUTORIAL.md)**.
 
 ### Optional: Container self-deploy (prebuilt artifacts)
 
@@ -187,7 +187,7 @@ cd matching-engine && source venv/bin/activate && pytest
 
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - System design and architecture
 - [TEE.md](docs/TEE.md) - Trusted Execution Environment implementation
-- [TUTORIAL.md](TUTORIAL.md) - Complete step-by-step walkthrough
+- [TUTORIAL.md](docs/TUTORIAL.md) - Complete step-by-step walkthrough
 - [TODO.md](docs/TODO.md) - Planned features and production checklist
 - [RESEARCH.md](docs/RESEARCH.md) - Research on hybrid DEX approaches
 - [contracts/settlement/README.md](contracts/settlement/README.md) - Contract details

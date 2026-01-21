@@ -2,22 +2,6 @@
 
 This document tracks planned improvements, features, and production requirements for the Stellar Dark Pool.
 
-## Critical - Production Requirements
-
-⚠️ **These items MUST be completed before production deployment:**
-
-### Security
-
-- [ ] **Backup Keys**: Implement secure key management and backup procedures for admin and matching engine keys
-- [ ] **Rate Limiting**: Add rate limiting to prevent API abuse and DoS attacks
-
-### Infrastructure
-
-- [ ] **HTTPS**: Deploy reverse proxy (nginx/Caddy/cloud load balancer) to add HTTPS to the matching engine API
-- [ ] **Monitoring**: Implement logging, metrics (Prometheus/Grafana), and alerting for system health
-- [ ] **Database**: Replace in-memory order book with persistent storage (PostgreSQL/Redis)
-- [ ] **High Availability**: Set up redundant matching engine instances with load balancing
-
 ## Smart Contract Enhancements
 
 - [ ] **Order Signature Verification**: Implement SEP-0053 signature verification in `settle_trade()` function
@@ -104,6 +88,7 @@ This document tracks planned improvements, features, and production requirements
 
 ## Completed ✓
 
+- ✓ HTTPS via Uvicorn TLS with Phala cloud TLS passthrough
 - ✓ Vault-based settlement contract
 - ✓ Python matching engine with REST API
 - ✓ SEP-0053 order signing

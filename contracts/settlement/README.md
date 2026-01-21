@@ -84,7 +84,7 @@ The contract uses a **Vault/Deposit Model** for asset management:
 - **Atomic Updates**: Balance changes are all-or-nothing
 - **Gas Efficiency**: Only settlement transactions on-chain, not individual order submissions
 
-See [ARCHITECTURE.md](../../ARCHITECTURE.md#settlement-model-vault-architecture) for detailed vault architecture.
+See [ARCHITECTURE.md](../../docs/ARCHITECTURE.md#settlement-model-vault-architecture) for detailed vault architecture.
 
 ## Development
 
@@ -219,4 +219,4 @@ stellar contract invoke \
 
 ## Contract Interface
 
-See [ARCHITECTURE.md](../../ARCHITECTURE.md) for detailed interface specifications and vault architecture.
+See [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) for detailed interface specifications and vault architecture.

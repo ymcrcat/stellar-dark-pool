@@ -12,7 +12,7 @@ The Stellar Dark Pool is a prototype for privacy-preserving trading on Stellar. 
 - **Automatic Settlement**: Trades settle on-chain immediately after matching
 - **Vault Model**: Users deposit assets into the contract; trades settle against vault balances
 - **Order Integrity**: SEP-0053 signatures ensure orders cannot be forged
-- **TEE Secured**: Matching engine runs in Trusted Execution Environment (see [TEE.md](TEE.md))
+- **TEE Secured**: Matching engine runs in Trusted Execution Environment (see [TEE.md](docs/TEE.md))
 - **Price-Time Priority**: Fair matching with FIFO ordering at each price level
 
 ## Project Structure
@@ -69,6 +69,17 @@ python -m src.main
 ```
 
 For a complete step-by-step walkthrough, see **[TUTORIAL.md](TUTORIAL.md)**.
+
+### Optional: Container self-deploy (prebuilt artifacts)
+
+- Place prebuilt artifacts under `matching-engine/artifacts/` before building the image:
+  - `settlement.wasm` (optimized contract)
+  - `stellar` (prebuilt stellar CLI binary, executable)
+- Set environment variables (e.g., in Docker Compose):
+  - `AUTO_DEPLOY_CONTRACT=true`
+  - `ASSET_A_CONTRACT_ID`, `ASSET_B_CONTRACT_ID` (token contract IDs)
+  - `FUND_WITH_FRIENDBOT=true` (testnet only, defaults to true)
+- When `SETTLEMENT_CONTRACT_ID` is unset, the container will generate the key, fund it on testnet, deploy the contract from the provided WASM, and call `set_matching_engine` on itself.
 
 ## Usage
 
@@ -145,7 +156,7 @@ Demonstrate the full flow with a remote TEE-deployed matching engine:
 ./scripts/demo_remote_tee.sh <tee_base_url> --contract-id CONTRACT_ID
 ```
 
-This script verifies TEE attestation, creates test accounts, submits matching orders, and verifies on-chain settlement. See [TEE.md](TEE.md) for detailed information about TEE deployment and verification.
+This script verifies TEE attestation, creates test accounts, submits matching orders, and verifies on-chain settlement. See [TEE.md](docs/TEE.md) for detailed information about TEE deployment and verification.
 
 ### Unit Tests
 
@@ -170,14 +181,14 @@ cd matching-engine && source venv/bin/activate && pytest
 
 ## Documentation
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) - System design and architecture
-- [TEE.md](TEE.md) - Trusted Execution Environment implementation
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - System design and architecture
+- [TEE.md](docs/TEE.md) - Trusted Execution Environment implementation
 - [TUTORIAL.md](TUTORIAL.md) - Complete step-by-step walkthrough
-- [TODO.md](TODO.md) - Planned features and production checklist
-- [RESEARCH.md](RESEARCH.md) - Research on hybrid DEX approaches
+- [TODO.md](docs/TODO.md) - Planned features and production checklist
+- [RESEARCH.md](docs/RESEARCH.md) - Research on hybrid DEX approaches
 - [contracts/settlement/README.md](contracts/settlement/README.md) - Contract details
 - [matching-engine/README.md](matching-engine/README.md) - Matching engine API docs
 
 ---
 
-**This is experimental software. Use at your own risk.** See [TODO.md](TODO.md) for production requirements.
+**This is experimental software. Use at your own risk.** See [TODO.md](docs/TODO.md) for production requirements.
